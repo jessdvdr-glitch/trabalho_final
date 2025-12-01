@@ -23,8 +23,9 @@ typedef struct{
 }RequestSector;
 
 typedef struct{
-    pthread_mutex_t mutex_sector; // /!\ use only pthread_mutex_try_lock() 
-    Aeronave * waiting_list;
+    int id; 
+    pthread_mutex_t mutex_sector; // /!\ use only pthread_mutex_try_lock()
+    Aeronave ** waiting_list; // pointer to pointer, because it's an array for the pointers to Aeronaves
 }MutexPriority;
 
 typedef struct{
@@ -53,7 +54,7 @@ RequestSector create_request(int number_requests);
 void destroy_requests(RequestSector * requests);
 
 // Sector MutexPriority functions
-MutexPriority create_mutex_priority(MutexPriority * mutex_priority, int max_size);
+MutexPriority create_mutex_priority(int max_size, int id);
 void destroy_mutex_priority(MutexPriority * mutex_priority);
 int order_by_priority(Aeronave * waiting_list, int size); // max size is the number of aeronaves
 void insert_aeronave_mutex_priority(MutexPriority * mutex_priority, Aeronave aeronave, int max_size);

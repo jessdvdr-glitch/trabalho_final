@@ -29,6 +29,7 @@ typedef struct{
 
 typedef struct{
     pthread_mutex_t mutex_request;
+    MutexPriority ** priority_mutexes;
 }CentralizedControlMechanism;
 
 // Sectors list fonctions 
@@ -41,6 +42,7 @@ int is_full_sectors(Sector * sectors, int number_sectors);
 
 // Aeronave functions
 Aeronave create_aeronave(int number_aeronaves);
+void init_aeronave(Aeronave * aeronave);
 void destroy_aeronaves(Aeronave * aeronaves);
 int request_sector(Aeronave * aeronave, int id_sector);
 int wait_sector(Aeronave * aeronave);
@@ -63,9 +65,11 @@ int is_full_mutex_priority(MutexPriority * mutex_priority, int max_size);
 
 // CentralizedControlMechanism functions
 CentralizedControlMechanism create_centralized_control_mechanism();
+void init_centralized_control(CentralizedControlMechanism * ccm);
+
 void destroy_centralized_control_mechanism(CentralizedControlMechanism * ccm);
 int control_priority(RequestSector* requests, MutexPriority * mutex_priorities, int number_aeronaves);
-int prevent_deadlock(RequestSector* requests, MutexPriority * mutex_priorities, int number_aeronaves); // not shure about the paramèters 
+int prevent_deadlock(RequestSector* requests, MutexPriority * mutex_priorities, int number_aeronaves); // not sure about the paramèters 
 Sector* get_next_sector(Aeronave * aeronave, Sector * sectors, int number_sectors);
 
 #endif

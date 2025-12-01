@@ -7,13 +7,15 @@
 void* thread_aeronave_function(void *arg) {
     Aeronave id = *((Aeronave *)arg);
     printf("Aeronave %d started\n", id.id);
+    init_aeronave(&id);
     pthread_exit(NULL);
     return NULL;
 }
 
 void* thread_centralized_control_mechanism(void *arg) {
-    CentralizedControlMechanism id = *((CentralizedControlMechanism *)arg);
+    CentralizedControlMechanism ccm = *((CentralizedControlMechanism *)arg);
     printf("Centralized Control Mechanism started\n");
+    init_centralized_control(&ccm);
     pthread_exit(NULL);
     return NULL;
 }

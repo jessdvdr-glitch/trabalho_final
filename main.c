@@ -60,4 +60,6 @@ int main(int argc, char *argv[]) {
     free(sectors);
     free(aeronaves);
     destroy_centralized_control_mechanism(&centralized_control_mechanism);
+    printf("Main thread finished\n");
+    return 0; 
 }    

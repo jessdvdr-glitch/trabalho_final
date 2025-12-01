@@ -1,0 +1,25 @@
+# --- Compilation C ---
+
+*.o
+
+*.out
+
+*.exe
+
+
+
+# --- Exécutables ---
+
+trabalho_final
+
+
+
+
+
+# --- Fichiers système et éditeurs ---
+
+.vscode/
+
+.DS_Store
+
+*~

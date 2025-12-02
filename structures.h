@@ -57,7 +57,7 @@ int repeat(Aeronave * aeronave);
 RequestSector create_request(int number_requests);
 void destroy_requests(RequestSector * requests);
 
-// Sector MutexPriority functions
+// Sector MutexPriority functions (DONE)
 MutexPriority* create_mutex_priority(int max_size, int id);
 void destroy_mutex_priority(MutexPriority * mutex_priority);
 int order_list_by_priority(MutexPriority * mutex_priority); // max size is the number of aeronaves
@@ -73,6 +73,9 @@ void init_centralized_control(CentralizedControlMechanism * ccm);
 void destroy_centralized_control_mechanism(CentralizedControlMechanism * ccm);
 int control_priority(RequestSector* requests, MutexPriority * mutex_priorities, int number_aeronaves);
 int prevent_deadlock(RequestSector* requests, MutexPriority * mutex_priorities, int number_aeronaves); // not sure about the paramèters 
+// thought of smth like this: if an aeronave tries to acquire the access to the next sector, there will be a timeout
+// if it times out, it stops trying to acquire the next sector, waits a little bit (important to be a random time) and then
+// tries again
 Sector* get_next_sector(Aeronave * aeronave, Sector * sectors, int number_sectors);
 
 #endif

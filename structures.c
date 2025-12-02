@@ -1,3 +1,4 @@
+#define _DEFAULT_SOURCE  // Enable usleep and other POSIX features
 #include "structures.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -104,11 +105,21 @@ int is_full_sectors(Sector * sectors, int number_sectors) {
 // Aeronave functions
 Aeronave* create_aeronave(int id, int priority, int tam_rota) {
     Aeronave* a = malloc(sizeof(Aeronave));
+    if (!a) return NULL;
+    
     a->id = id;
     a->priority = priority;
     a->tam_rota = tam_rota;
     a->current_index_rota = 0;
     a->aguardar = 0;
+    
+    // CRITICAL: Allocate memory for the rota array
+    a->rota = malloc(sizeof(int) * tam_rota);
+    if (!a->rota) {
+        free(a);
+        return NULL;
+    }
+    
     int num_sectors = centralized_control_mechanism->num_mutex_sections;
     a->rota[0] = rand() % num_sectors; // random starting sector
     int next;
@@ -125,7 +136,12 @@ Aeronave* create_aeronave(int id, int priority, int tam_rota) {
 }
 
 void destroy_aeronave(Aeronave * aeronave) {
-    if (aeronave) free(aeronave);
+    if (aeronave) {
+        if (aeronave->rota) {
+            free(aeronave->rota);  // Free the dynamically allocated rota array
+        }
+        free(aeronave);
+    }
 }
 
 int request_sector(Aeronave * aeronave, int id_sector) {

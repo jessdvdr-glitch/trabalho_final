@@ -40,13 +40,15 @@ void insert_aeronave_mutex_priority(MutexPriority * mutex_priority, Aeronave * a
 }
 
 Aeronave* remove_aeronave_mutex_priority(MutexPriority * mutex_priority){
-    if(mutex_priority->waiting_list_size == mutex_priority->max_size){
-        return NULL;
-    }
+    // if(mutex_priority->waiting_list_size == mutex_priority->max_size){
+    //     return NULL;
+    // }
     Aeronave *out = mutex_priority->waiting_list[0]; // takes the first one
+    // printf("remotion succesfull\n");
     for(int i = 0; i < mutex_priority->waiting_list_size - 1; i++){ // dislocate the next ones to the head of the queue
         mutex_priority->waiting_list[i] = mutex_priority->waiting_list[i+1];
     }
+    // printf("dislocation successfull\n");
     mutex_priority->waiting_list_size--;
     mutex_priority->waiting_list[mutex_priority->waiting_list_size] = NULL; // cleans last position
     return out;

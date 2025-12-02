@@ -30,6 +30,18 @@ int main(void){ // IMPORTANT: COMPILE WITH THE COMMAND: gcc tests_mutex_priority
         printf("aeronave %d na posicao %d da lista, prioridade %d\n", mp->waiting_list[i]->id, i, mp->waiting_list[i]->priority);
     }
 
+    printf("\n");
+
+    for(int i = 0; i < n; i++){
+        Aeronave* out = remove_aeronave_mutex_priority(mp);
+        printf("aeronave %d saiu da frente da fila\n", out->id);
+    }
+
+    // Aeronave* test = remove_aeronave_mutex_priority(mp);
+    // if(test != NULL){
+    //     printf("ERRO!\n");
+    // }
+
     destroy_mutex_priority(mp);
     for(int i = 0; i < n; i++){
         free(aeronaves[i]);

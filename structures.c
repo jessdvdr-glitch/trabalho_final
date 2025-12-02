@@ -52,14 +52,20 @@ void destroy_aeronaves(Aeronave * aeronaves) {
 
 int request_sector(Aeronave * aeronave, int id_sector) {
     (void)aeronave; (void)id_sector;
+    // 1 lock the global mutex mutex_request in the struct CentralizedControlMechanism
+    // 2 set the request field in CentralizedControlMechanism to the desired request (id_sector, id_aeronave)
+    // wait until the request is processed by the centralized control mechanism thread
+    // unlock the mutex_request when you received the response
     return 0; // Placeholder
 }
 
+// if the response of the request is NULL, the aeronave must wait
 int wait_sector(Aeronave * aeronave) {
     (void)aeronave;
     return 0; // Placeholder
 }
 
+// if the response of the request is a Sector*, the aeronave can acquire it
 int acquire_sector(Aeronave * aeronave, Sector * sector) {
     (void)aeronave; (void)sector;
     return 0; // Placeholder
@@ -207,11 +213,7 @@ Sector* control_priority(RequestSector* request, MutexPriority ** mutex_prioriti
         // Sector is FREE: mutex acquired successfully
         printf("[CONTROL_PRIORITY] Aircraft %d acquired sector %d (lock successful).\n", 
                request->id_aeronave, request->id_sector);
-        Sector * acquired_sector = &sectors[request->id_sector];
-        
-        // Unlock the mutex request
-        pthread_mutex_unlock(mutex_request);
-        
+        Sector * acquired_sector = &sectors[request->id_sector];         
         return acquired_sector; // send the new sector to the aeronave
     } else if (lock_result == EBUSY) {
         // Sector is BUSY: mutex could not be acquired
@@ -224,14 +226,10 @@ Sector* control_priority(RequestSector* request, MutexPriority ** mutex_prioriti
         
         printf("[CONTROL_PRIORITY] Aircraft %d added to waiting list for sector %d.\n", 
                request->id_aeronave, request->id_sector);
-        // Unlock the mutex request
-        pthread_mutex_unlock(mutex_request);
         return NULL; // section not available : aeronave must wait
     } else {
         // Unexpected error from pthread_mutex_trylock
         printf("[CONTROL_PRIORITY] Error: pthread_mutex_trylock failed with code %d.\n", lock_result);
-        // Unlock the mutex request
-        pthread_mutex_unlock(mutex_request);
         return NULL;
     }
 }

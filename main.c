@@ -5,8 +5,8 @@
 #include "structures.h"
 
 // global variables
-Sector * sectors;
-Aeronave * aeronaves;
+Sector ** sectors;
+Aeronave ** aeronaves;
 CentralizedControlMechanism * centralized_control_mechanism;
 
 void* thread_aeronave_function(void *arg) {
@@ -60,12 +60,13 @@ int main(int argc, char *argv[]) {
         return 1; 
     }
 
+    srand(time(NULL));
     int number_sectors = atoi(argv[1]);
     int number_aeronaves = atoi(argv[2]);
     // initialize structures
-    sectors = malloc(sizeof(Sector) * number_sectors);
-    aeronaves = malloc(sizeof(Aeronave) * number_aeronaves);
-    centralized_control_mechanism = create_centralized_control_mechanism(number_sectors); // use sectors count
+    sectors = malloc(sizeof(Sector*) * number_sectors);
+    aeronaves = malloc(sizeof(Aeronave*) * number_aeronaves);
+    centralized_control_mechanism = create_centralized_control_mechanism(number_sectors, number_aeronaves); // use sectors count
 
     for (int i = 0; i < number_sectors; i++) {
         sectors[i] = create_sector(i);
@@ -84,7 +85,7 @@ int main(int argc, char *argv[]) {
 
     for(int j = 0; j < number_aeronaves; j++) {
         pthread_create(&aeronaves_threads[j], NULL,
-                       thread_aeronave_function, (void *)&aeronaves[j]);   // function uses real pointer now
+                       thread_aeronave_function, (void *)aeronaves[j]);   // function uses real pointer now
     }
 
     pthread_detach(centralized_control_mechanism_thread); // controlador roda em loop; não fazer join

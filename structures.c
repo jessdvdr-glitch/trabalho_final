@@ -4,16 +4,21 @@
 #include <unistd.h>   // usleep
 #include <string.h> // (may be useful)
 #include <errno.h>   // EBUSY for pthread_mutex_trylock return
+#include <time.h>  //sleep for random time
+
+extern Sector **sectors;
+extern Aeronave **aeronaves;
+extern CentralizedControlMechanism *centralized_control_mechanism;
 
 // Sector functions
-Sector create_sector(int id) {
-    Sector s;
-    s.id = id;
+Sector* create_sector(int id) {
+    Sector* s = malloc(sizeof(Sector));
+    s->id = id;
     return s;
 }
 
-void destroy_sectors(Sector * sectors) {
-    if (sectors) free(sectors);
+void destroy_sector(Sector * sector) {
+    if (sector) free(sector);
 }
 
 int insert_sector(Sector * sectors, Sector sector, int number_sectors) {
@@ -37,28 +42,23 @@ int is_full_sectors(Sector * sectors, int number_sectors) {
     return 0; // Placeholder
 }
 
-extern Sector *sectors;
-extern Aeronave *aeronaves;
-extern CentralizedControlMechanism *centralized_control_mechanism;
-
 // Aeronave functions
-Aeronave create_aeronave(int id) {
-    Aeronave a;
-    a.id = id;
-    a.priority = 0;
-    a.rota = NULL;
-    a.current_index_rota = 0;
-    a.current_sector = NULL;
-    a.aguardar = 0;
+Aeronave* create_aeronave(int id) {
+    Aeronave* a = malloc(sizeof(Aeronave));
+    a->id = id;
+    a->priority = 0;
+    a->rota = NULL;
+    a->current_index_rota = 0;
+    a->current_sector = NULL;
+    a->aguardar = 0;
     return a;
 }
 
-void destroy_aeronaves(Aeronave * aeronaves) {
-    if (aeronaves) free(aeronaves);
+void destroy_aeronave(Aeronave * aeronave) {
+    if (aeronave) free(aeronave);
 }
 
 int request_sector(Aeronave * aeronave, int id_sector) {
-    (void)aeronave; (void)id_sector;
     // NAO PRECISA DO MUTEX !! JA USADO NO ENQUEUE_REQUEST FONCTION
     // insert a struct request in the request queue with the focntion int enqueue_request(CentralizedControlMechanism * ccm, RequestSector * request);
     // wait until the request is processed by the centralized control mechanism thread
@@ -70,7 +70,6 @@ int request_sector(Aeronave * aeronave, int id_sector) {
 
 // if the response of the request is NULL, the aeronave must wait
 int wait_sector(Aeronave * aeronave) {
-    (void)aeronave;
     aeronave->aguardar = 1;
     while (aeronave->aguardar) {
         usleep(1000);
@@ -80,7 +79,6 @@ int wait_sector(Aeronave * aeronave) {
 
 // if the response of the request is a Sector*, the aeronave can acquire it
 int acquire_sector(Aeronave * aeronave, Sector * sector) {
-    (void)aeronave; (void)sector;
     if (!centralized_control_mechanism || !sector) return 0;
     int sid = sector->id;
     if (sid < 0 || sid >= centralized_control_mechanism->num_mutex_sections) return 0;
@@ -95,7 +93,6 @@ int acquire_sector(Aeronave * aeronave, Sector * sector) {
 }
 
 Sector* release_sector(Aeronave * aeronave) {
-    (void)aeronave;
     if (!centralized_control_mechanism || !aeronave || !aeronave->current_sector) return NULL;
     int sid = aeronave->current_sector->id;
     if (sid < 0 || sid >= centralized_control_mechanism->num_mutex_sections) return NULL;
@@ -108,7 +105,6 @@ Sector* release_sector(Aeronave * aeronave) {
 }
 
 int repeat(Aeronave * aeronave) {
-    (void)aeronave;
     if (!aeronave || !aeronave->rota) return 0;
     int next = aeronave->rota[aeronave->current_index_rota];
     return (next >= 0);
@@ -144,8 +140,8 @@ void init_aeronave(Aeronave * aeronave) {
             usleep(1000);
         }
 
-        // Simulate using the sector
-        usleep(2000);
+        // Simulate using the sector for a random time
+        usleep(1000 * (rand() % 5 + 1));
 
         // Release and advance to next waypoint
         release_sector(aeronave);
@@ -167,9 +163,9 @@ void destroy_requests(RequestSector * requests) {
 
 // Sector MutexPriority functions
 MutexPriority* create_mutex_priority(int max_size, int id){ // max size is the number of aeronaves
-    MutexPriority* mutex_priority = (MutexPriority*)malloc(sizeof(MutexPriority));
+    MutexPriority* mutex_priority = malloc(sizeof(MutexPriority));
     mutex_priority->id = id;
-    mutex_priority->waiting_list = (Aeronave**)malloc(max_size * sizeof(Aeronave*));
+    mutex_priority->waiting_list = malloc(max_size * sizeof(Aeronave*));
     mutex_priority->max_size = max_size;
     mutex_priority->waiting_list_size = 0;
     pthread_mutex_init(&mutex_priority->mutex_sector, NULL);
@@ -204,15 +200,10 @@ void insert_aeronave_mutex_priority(MutexPriority * mutex_priority, Aeronave * a
 }
 
 Aeronave* remove_aeronave_mutex_priority(MutexPriority * mutex_priority){
-    // if(mutex_priority->waiting_list_size == mutex_priority->max_size){
-    //     return NULL;
-    // }
     Aeronave *out = mutex_priority->waiting_list[0]; // takes the first one
-    // printf("remotion succesfull\n");
     for(int i = 0; i < mutex_priority->waiting_list_size - 1; i++){ // dislocate the next ones to the head of the queue
         mutex_priority->waiting_list[i] = mutex_priority->waiting_list[i+1];
     }
-    // printf("dislocation successfull\n");
     mutex_priority->waiting_list_size--;
     mutex_priority->waiting_list[mutex_priority->waiting_list_size] = NULL; // cleans last position
     return out;
@@ -226,47 +217,47 @@ int is_full_mutex_priority(MutexPriority * mutex_priority){
 
 
 // Sector CentralizedControlMechanism functions
-CentralizedControlMechanism* create_centralized_control_mechanism(int aeronaves_number) {
-  CentralizedControlMechanism *ccm = malloc(sizeof(CentralizedControlMechanism));
-  if (!ccm) return NULL;
+CentralizedControlMechanism* create_centralized_control_mechanism(int sectors_number, int aeronaves_number) {
+    CentralizedControlMechanism *ccm = malloc(sizeof(CentralizedControlMechanism));
+    if (!ccm) return NULL;
 
-  ccm->num_mutex_sections = aeronaves_number;
-  ccm->mutex_sections = calloc(aeronaves_number, sizeof(MutexPriority*));
-  if (!ccm->mutex_sections) {
-    free(ccm);
-    return NULL;
-  }
-
-  for (int i = 0; i < aeronaves_number; ++i) {
-    ccm->mutex_sections[i] = create_mutex_priority(aeronaves_number, i);
-    if (!ccm->mutex_sections[i]) {
-      for (int j = 0; j < i; ++j) destroy_mutex_priority(ccm->mutex_sections[j]);
-      free(ccm->mutex_sections);
-      free(ccm);
-      return NULL;
+    ccm->num_mutex_sections = sectors_number;
+    ccm->mutex_sections = malloc(sectors_number * sizeof(MutexPriority*));
+    if (!ccm->mutex_sections) {
+        free(ccm);
+        return NULL;
     }
-  }
 
-  // Initialize request queue with large capacity
-  ccm->request_queue_size = aeronaves_number * 10; // Large queue capacity
-  ccm->request_queue = calloc(ccm->request_queue_size, sizeof(RequestSector));
-  if (!ccm->request_queue) {
-    for (int i = 0; i < aeronaves_number; ++i) destroy_mutex_priority(ccm->mutex_sections[i]);
-    free(ccm->mutex_sections);
-    free(ccm);
-    return NULL;
-  }
-  ccm->request_queue_front = 0;
-  ccm->request_queue_rear = 0;
-  ccm->request_queue_count = 0;
+    for (int i = 0; i < sectors_number; ++i) {
+        ccm->mutex_sections[i] = create_mutex_priority(aeronaves_number, i);
+        if (!ccm->mutex_sections[i]) {
+            for (int j = 0; j < i; ++j) destroy_mutex_priority(ccm->mutex_sections[j]);
+            free(ccm->mutex_sections);
+            free(ccm);
+            return NULL;
+        }
+    }
 
-  if (pthread_mutex_init(&ccm->mutex_request, NULL) != 0) {
-    for (int i = 0; i < aeronaves_number; ++i) destroy_mutex_priority(ccm->mutex_sections[i]);
-    free(ccm->mutex_sections);
-    free(ccm->request_queue);
-    free(ccm);
-    return NULL;
-  }
+    // Initialize request queue with large capacity
+    ccm->request_queue_size = sectors_number * 10; // Large queue capacity
+    ccm->request_queue = malloc(ccm->request_queue_size * sizeof(RequestSector));
+    if (!ccm->request_queue) {
+        for (int i = 0; i < sectors_number; ++i) destroy_mutex_priority(ccm->mutex_sections[i]);
+        free(ccm->mutex_sections);
+        free(ccm);
+        return NULL;
+    }
+    ccm->request_queue_front = 0;
+    ccm->request_queue_rear = 0;
+    ccm->request_queue_count = 0;
+
+    if (pthread_mutex_init(&ccm->mutex_request, NULL) != 0) {
+        for (int i = 0; i < sectors_number; ++i) destroy_mutex_priority(ccm->mutex_sections[i]);
+        free(ccm->mutex_sections);
+        free(ccm->request_queue);
+        free(ccm);
+        return NULL;
+    }
 
   return ccm;
 }
@@ -357,7 +348,7 @@ Sector* control_priority(RequestSector* request, MutexPriority ** mutex_prioriti
         pthread_mutex_unlock(&mutex_priorities[request->id_sector]->mutex_sector);
 
         // Wake the aircraft; it will perform the actual acquire_sector() trylock
-        aeronaves[request->id_aeronave].aguardar = 0;
+        aeronaves[request->id_aeronave]->aguardar = 0;
 
         // Informative pointer returned
         return &sectors[request->id_sector];

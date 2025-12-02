@@ -43,20 +43,20 @@ typedef struct{
 }CentralizedControlMechanism;
 
 // global variables
-extern Sector * sectors;
-extern Aeronave * aeronaves;
+extern Sector ** sectors;
+extern Aeronave ** aeronaves;
 extern CentralizedControlMechanism * centralized_control_mechanism;
 
-// Sectors list fonctions 
-Sector create_sector(int number_sectors);
-void destroy_sectors(Sector * sectors); 
+// Sectors list functions 
+Sector* create_sector(int id);
+void destroy_sector(Sector * sectors); 
 int insert_sector(Sector * sectors, Sector sector, int number_sectors);
 Sector remove_sector(Sector * sectors, int number_sectors, int id_sector);
 int is_empty_sectors(Sector * sectors, int number_sectors);
 int is_full_sectors(Sector * sectors, int number_sectors);
 
 // Aeronave functions
-Aeronave create_aeronave(int number_aeronaves);
+Aeronave* create_aeronave(int id);
 void init_aeronave(Aeronave * aeronave);
 void destroy_aeronaves(Aeronave * aeronaves);
 int request_sector(Aeronave * aeronave, int id_sector);
@@ -79,6 +79,7 @@ int is_empty_mutex_priority(MutexPriority * mutex_priority);
 int is_full_mutex_priority(MutexPriority * mutex_priority);
 
 // CentralizedControlMechanism functions
+CentralizedControlMechanism* create_centralized_control_mechanism(int sectors_number, int aeronaves_number);
 void init_centralized_control(CentralizedControlMechanism * ccm);
 
 int prevent_deadlock(RequestSector* requests, MutexPriority * mutex_priorities, int number_aeronaves); // not sure about the paramèters 
@@ -86,7 +87,6 @@ int prevent_deadlock(RequestSector* requests, MutexPriority * mutex_priorities, 
 // if it times out, it stops trying to acquire the next sector, waits a little bit (important to be a random time) and then
 // tries again
 Sector* get_next_sector(Aeronave * aeronave, Sector * sectors, int number_sectors);
-CentralizedControlMechanism* create_centralized_control_mechanism(int aeronaves_number);
 void destroy_centralized_control_mechanism(CentralizedControlMechanism * ccm);
 int enqueue_request(CentralizedControlMechanism * ccm, RequestSector * request);
 RequestSector* dequeue_request(CentralizedControlMechanism * ccm);

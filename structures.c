@@ -1,3 +1,4 @@
+#define _DEFAULT_SOURCE
 #include "structures.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -278,6 +279,9 @@ void insert_aeronave_mutex_priority(MutexPriority * mutex_priority, Aeronave * a
 }
 
 Aeronave* remove_aeronave_mutex_priority(MutexPriority * mutex_priority){
+    if(mutex_priority->waiting_list_size <= 0){
+        return NULL;
+    }
     Aeronave *out = mutex_priority->waiting_list[0]; // takes the first one
     for(int i = 0; i < mutex_priority->waiting_list_size - 1; i++){ // dislocate the next ones to the head of the queue
         mutex_priority->waiting_list[i] = mutex_priority->waiting_list[i+1];
@@ -453,8 +457,13 @@ Sector* control_priority(RequestSector* request, MutexPriority ** mutex_prioriti
     else{ // if the request is a flag from the aeronave that has just released the sector, it dequeues it from that sector and wakes the waiting aeronave
         int id_sector = request->id_sector;
         Aeronave *released = remove_aeronave_mutex_priority(mutex_priorities[id_sector]);
-        printf("[CONTROL_PRIORITY] Aircraft %d released sector %d. Aircraft %d is now free to go.\n", request->id_aeronave, id_sector, released->id);
-        released->aguardar = 0;
+        if(released != NULL){
+            printf("[CONTROL_PRIORITY] Aircraft %d released sector %d. Aircraft %d is now free to go.\n", request->id_aeronave, id_sector, released->id);
+            released->aguardar = 0;
+        }
+        else{
+            printf("[CONTROL_PRIORITY] Aircraft %d released sector %d.\n", request->id_aeronave, id_sector);
+        }
         return sectors[id_sector];
     }
 }

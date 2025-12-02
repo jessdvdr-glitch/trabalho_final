@@ -121,7 +121,6 @@ void destroy_aeronaves(Aeronave * aeronaves) {
 }
 
 int request_sector(Aeronave * aeronave, int id_sector) {
-    (void)aeronave; (void)id_sector;
     // NAO PRECISA DO MUTEX !! JA USADO NO ENQUEUE_REQUEST FONCTION
     // insert a struct request in the request queue with the focntion int enqueue_request(CentralizedControlMechanism * ccm, RequestSector * request);
     // wait until the request is processed by the centralized control mechanism thread
@@ -133,17 +132,15 @@ int request_sector(Aeronave * aeronave, int id_sector) {
 
 // if the response of the request is NULL, the aeronave must wait
 int wait_sector(Aeronave * aeronave) {
-    (void)aeronave;
     aeronave->aguardar = 1;
     while (aeronave->aguardar) {
-        usleep(1000);
+        // usleep(1000);
     }
     return 0;
 }
 
 // if the response of the request is a Sector*, the aeronave can acquire it
 int acquire_sector(Aeronave * aeronave, Sector * sector) {
-    (void)aeronave; (void)sector;
     if (!centralized_control_mechanism || !sector) return 0;
     int sid = sector->id;
     if (sid < 0 || sid >= centralized_control_mechanism->num_mutex_sections) return 0;
@@ -158,7 +155,6 @@ int acquire_sector(Aeronave * aeronave, Sector * sector) {
 }
 
 Sector* release_sector(Aeronave * aeronave) {
-    (void)aeronave;
     if (!centralized_control_mechanism || !aeronave || !aeronave->current_sector) return NULL;
     int sid = aeronave->current_sector->id;
     if (sid < 0 || sid >= centralized_control_mechanism->num_mutex_sections) return NULL;
@@ -171,7 +167,6 @@ Sector* release_sector(Aeronave * aeronave) {
 }
 
 int repeat(Aeronave * aeronave) {
-    (void)aeronave;
     if (!aeronave || !aeronave->rota) return 0;
     int next = aeronave->rota[aeronave->current_index_rota];
     return (next >= 0);
@@ -195,7 +190,7 @@ void init_aeronave(Aeronave * aeronave) {
 
         // Request access to the next sector
         if (request_sector(aeronave, next_id) < 0) {
-            usleep(1000);
+            sleep(1);
             continue;
         }
 
@@ -204,11 +199,11 @@ void init_aeronave(Aeronave * aeronave) {
 
         // Acquire (trylock) after authorization it should be available
         while (!acquire_sector(aeronave, &sectors[next_id])) {
-            usleep(1000);
+            sleep(1);
         }
 
         // Simulate using the sector
-        usleep(2000);
+        sleep(2);
 
         // Release and advance to next waypoint
         release_sector(aeronave);
@@ -216,11 +211,10 @@ void init_aeronave(Aeronave * aeronave) {
     }
 }
 
-RequestSector create_request(int number_requests) {
-    (void)number_requests;
+RequestSector create_request(int number_sectors, int number_aeronaves) {
     RequestSector r;
-    r.id_sector = 0;
-    r.id_aeronave = 0;
+    r.id_sector = number_sectors;
+    r.id_aeronave = number_aeronaves;
     return r; // Placeholder
 }
 

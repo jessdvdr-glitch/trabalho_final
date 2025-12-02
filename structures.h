@@ -66,7 +66,7 @@ Sector* release_sector(Aeronave * aeronave);
 int repeat(Aeronave * aeronave);
 
 //RequestSector
-RequestSector create_request(int number_requests);
+RequestSector create_request(int number_sectors, int number_aeronaves);
 void destroy_requests(RequestSector * requests);
 
 // Sector MutexPriority functions (DONE)

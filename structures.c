@@ -53,7 +53,7 @@ void destroy_aeronaves(Aeronave * aeronaves) {
 int request_sector(Aeronave * aeronave, int id_sector) {
     (void)aeronave; (void)id_sector;
     // 1 lock the global mutex mutex_request in the struct CentralizedControlMechanism
-    // 2 set the request field in CentralizedControlMechanism to the desired request (id_sector, id_aeronave)
+    // 2 insert a struct request in the request queue with the focntion int enqueue_request(CentralizedControlMechanism * ccm, RequestSector * request);
     // wait until the request is processed by the centralized control mechanism thread
     // unlock the mutex_request when you received the response
     return 0; // Placeholder

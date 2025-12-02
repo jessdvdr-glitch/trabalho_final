@@ -1,8 +1,9 @@
 #ifndef STRUCTURES_H
 #define STRUCTURES_H
-
-#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include <pthread.h>
+#include <errno.h>
 
 typedef struct{
     int id;
@@ -23,13 +24,24 @@ typedef struct{
 }RequestSector;
 
 typedef struct{
-    pthread_mutex_t mutex_sector; // /!\ use only pthread_mutex_try_lock() 
-    Aeronave * waiting_list;
+    int id; 
+    pthread_mutex_t mutex_sector; // /!\ use only pthread_mutex_try_lock()
+    int max_size;
+    Aeronave ** waiting_list; // pointer to pointer, because it's an array for the pointers to Aeronaves
+    int waiting_list_size;
 }MutexPriority;
 
 typedef struct{
-    pthread_mutex_t mutex_request;
+    MutexPriority ** mutex_sections; /* array of pointers to MutexPriority (one per sector) */
+    int num_mutex_sections;          /* number of entries in mutex_sections */
+    RequestSector* request;          /* a single RequestSector object (may be NULL) */
+    pthread_mutex_t mutex_request;   /* mutex to protect `request` : one request at a time */
 }CentralizedControlMechanism;
+
+// global variables
+extern Sector * sectors;
+extern Aeronave * aeronaves;
+extern CentralizedControlMechanism * centralized_control_mechanism;
 
 // Sectors list fonctions 
 Sector create_sector(int number_sectors);
@@ -53,19 +65,18 @@ RequestSector create_request(int number_requests);
 void destroy_requests(RequestSector * requests);
 
 // Sector MutexPriority functions
-MutexPriority create_mutex_priority(MutexPriority * mutex_priority, int max_size);
+MutexPriority* create_mutex_priority(int max_size, int id);
 void destroy_mutex_priority(MutexPriority * mutex_priority);
-int order_by_priority(Aeronave * waiting_list, int size); // max size is the number of aeronaves
-void insert_aeronave_mutex_priority(MutexPriority * mutex_priority, Aeronave aeronave, int max_size);
-Aeronave remove_aeronave_mutex_priority(MutexPriority * mutex_priority, int max_size);
+int order_list_by_priority(MutexPriority * mutex_priority); // max size is the number of aeronaves
+void insert_aeronave_mutex_priority(MutexPriority * mutex_priority, Aeronave * aeronave);
+Aeronave* remove_aeronave_mutex_priority(MutexPriority * mutex_priority);
 int is_empty_mutex_priority(MutexPriority * mutex_priority);
-int is_full_mutex_priority(MutexPriority * mutex_priority, int max_size);
+int is_full_mutex_priority(MutexPriority * mutex_priority);
 
 // CentralizedControlMechanism functions
-CentralizedControlMechanism create_centralized_control_mechanism();
+CentralizedControlMechanism* create_centralized_control_mechanism(int aeronaves_number);
 void destroy_centralized_control_mechanism(CentralizedControlMechanism * ccm);
-int control_priority(RequestSector* requests, MutexPriority * mutex_priorities, int number_aeronaves);
+Sector* control_priority(RequestSector* request, MutexPriority ** mutex_priorities, pthread_mutex_t * mutex_request);
 int prevent_deadlock(RequestSector* requests, MutexPriority * mutex_priorities, int number_aeronaves); // not shure about the paramèters 
-Sector* get_next_sector(Aeronave * aeronave, Sector * sectors, int number_sectors);
 
 #endif

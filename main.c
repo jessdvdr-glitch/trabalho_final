@@ -10,9 +10,9 @@ Aeronave * aeronaves;
 CentralizedControlMechanism * centralized_control_mechanism;
 
 void* thread_aeronave_function(void *arg) {
-    Aeronave id = *((Aeronave *)arg);
-    printf("Aeronave %d started\n", id.id);
-    init_aeronave(&id);
+    Aeronave *a = (Aeronave *)arg;                    // use the real pointer instead of copying
+    printf("Aeronave %d started\n", a->id);           // updated variable name
+    init_aeronave(a);                                 // run loop inside the real aeronave
     pthread_exit(NULL);
     return NULL;
 }
@@ -34,6 +34,7 @@ void* thread_centralized_control_mechanism(void *arg) {
                    current_request->id_sector);
             
             // Call control_priority to attempt to acquire the sector
+            // The call remains the same, the change was inside control_priority()
             Sector * result = control_priority(current_request, 
                                               centralized_control_mechanism->mutex_sections,
                                               &centralized_control_mechanism->mutex_request);
@@ -64,7 +65,7 @@ int main(int argc, char *argv[]) {
     // initialize structures
     sectors = malloc(sizeof(Sector) * number_sectors);
     aeronaves = malloc(sizeof(Aeronave) * number_aeronaves);
-    centralized_control_mechanism = create_centralized_control_mechanism(number_aeronaves);
+    centralized_control_mechanism = create_centralized_control_mechanism(number_sectors); // use sectors count
 
     for (int i = 0; i < number_sectors; i++) {
         sectors[i] = create_sector(i);
@@ -82,10 +83,11 @@ int main(int argc, char *argv[]) {
     pthread_create(&centralized_control_mechanism_thread, NULL, thread_centralized_control_mechanism, (void *)num_aero_ptr);
 
     for(int j = 0; j < number_aeronaves; j++) {
-        pthread_create(&aeronaves_threads[j], NULL, (void *)thread_aeronave_function, (void *)&aeronaves[j]);
+        pthread_create(&aeronaves_threads[j], NULL,
+                       thread_aeronave_function, (void *)&aeronaves[j]);   // function uses real pointer now
     }
 
-    pthread_join(centralized_control_mechanism_thread, NULL);
+    pthread_detach(centralized_control_mechanism_thread); // controlador roda em loop; não fazer join
     
     for(int j = 0; j < number_aeronaves; j++) {
         pthread_join(aeronaves_threads[j], NULL);

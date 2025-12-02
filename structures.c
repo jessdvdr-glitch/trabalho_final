@@ -1,6 +1,9 @@
 #include "structures.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>   // usleep
+#include <string.h> // (may be useful)
+#include <errno.h>   // EBUSY for pthread_mutex_trylock return
 
 // Sector functions
 Sector create_sector(int id) {
@@ -34,6 +37,10 @@ int is_full_sectors(Sector * sectors, int number_sectors) {
     return 0; // Placeholder
 }
 
+extern Sector *sectors;
+extern Aeronave *aeronaves;
+extern CentralizedControlMechanism *centralized_control_mechanism;
+
 // Aeronave functions
 Aeronave create_aeronave(int id) {
     Aeronave a;
@@ -55,29 +62,95 @@ int request_sector(Aeronave * aeronave, int id_sector) {
     // NAO PRECISA DO MUTEX !! JA USADO NO ENQUEUE_REQUEST FONCTION
     // insert a struct request in the request queue with the focntion int enqueue_request(CentralizedControlMechanism * ccm, RequestSector * request);
     // wait until the request is processed by the centralized control mechanism thread
-    return 0; // Placeholder
+    RequestSector req;
+    req.id_aeronave = aeronave->id;
+    req.id_sector   = id_sector;
+    return enqueue_request(centralized_control_mechanism, &req);
 }
 
 // if the response of the request is NULL, the aeronave must wait
 int wait_sector(Aeronave * aeronave) {
     (void)aeronave;
-    return 0; // Placeholder
+    aeronave->aguardar = 1;
+    while (aeronave->aguardar) {
+        usleep(1000);
+    }
+    return 0;
 }
 
 // if the response of the request is a Sector*, the aeronave can acquire it
 int acquire_sector(Aeronave * aeronave, Sector * sector) {
     (void)aeronave; (void)sector;
-    return 0; // Placeholder
+    if (!centralized_control_mechanism || !sector) return 0;
+    int sid = sector->id;
+    if (sid < 0 || sid >= centralized_control_mechanism->num_mutex_sections) return 0;
+
+    MutexPriority *mp = centralized_control_mechanism->mutex_sections[sid];
+    int rc = pthread_mutex_trylock(&mp->mutex_sector);
+    if (rc == 0) {
+        aeronave->current_sector = sector;
+        return 1;
+    }
+    return 0;
 }
 
 Sector* release_sector(Aeronave * aeronave) {
     (void)aeronave;
-    return NULL; // Placeholder
+    if (!centralized_control_mechanism || !aeronave || !aeronave->current_sector) return NULL;
+    int sid = aeronave->current_sector->id;
+    if (sid < 0 || sid >= centralized_control_mechanism->num_mutex_sections) return NULL;
+
+    MutexPriority *mp = centralized_control_mechanism->mutex_sections[sid];
+    pthread_mutex_unlock(&mp->mutex_sector);
+    Sector *released = aeronave->current_sector;
+    aeronave->current_sector = NULL;
+    return released; // Placeholder
 }
 
 int repeat(Aeronave * aeronave) {
     (void)aeronave;
-    return 0; // Placeholder
+    if (!aeronave || !aeronave->rota) return 0;
+    int next = aeronave->rota[aeronave->current_index_rota];
+    return (next >= 0);
+}
+
+// Pequena função interna para obter o próximo setor da rota (terminada com -1)
+static int aeronave_next_sector_id(Aeronave *a) {
+    if (!a || !a->rota) return -1;
+    return a->rota[a->current_index_rota];
+}
+
+// "Init + run": prepara estado e executa a rota completa da aeronave
+void init_aeronave(Aeronave * aeronave) {
+    if (!aeronave) return;
+
+    if (aeronave->current_index_rota < 0) aeronave->current_index_rota = 0;
+
+    while (repeat(aeronave)) {
+        int next_id = aeronave_next_sector_id(aeronave);
+        if (next_id < 0) break;
+
+        // Request access to the next sector
+        if (request_sector(aeronave, next_id) < 0) {
+            usleep(1000);
+            continue;
+        }
+
+        // Wait CCM authorization 
+        wait_sector(aeronave);
+
+        // Acquire (trylock) after authorization it should be available
+        while (!acquire_sector(aeronave, &sectors[next_id])) {
+            usleep(1000);
+        }
+
+        // Simulate using the sector
+        usleep(2000);
+
+        // Release and advance to next waypoint
+        release_sector(aeronave);
+        aeronave->current_index_rota++;
+    }
 }
 
 RequestSector create_request(int number_requests) {
@@ -265,37 +338,44 @@ int is_request_queue_empty(CentralizedControlMechanism * ccm) {
 
 
 Sector* control_priority(RequestSector* request, MutexPriority ** mutex_priorities, 
-                     pthread_mutex_t * mutex_request) {
+                         pthread_mutex_t * mutex_request) {
     (void)mutex_request; // Mark as intentionally unused
-    // Check if request pointer is NULL
+
     if (request == NULL) {
         printf("[CONTROL_PRIORITY] Error: request pointer is NULL. Exiting function.\n");
         return NULL;
     }
 
-    // Attempt to lock the sector mutex using trylock (non-blocking)
     int lock_result = pthread_mutex_trylock(&mutex_priorities[request->id_sector]->mutex_sector);
 
     if (lock_result == 0) {
-        // Sector is FREE: mutex acquired successfully
-        printf("[CONTROL_PRIORITY] Aircraft %d acquired sector %d (lock successful).\n", 
+        // Sector is FREE: mutex acquired successfully (probe only)
+        printf("[CONTROL_PRIORITY] Aircraft %d acquired sector %d (lock successful).\n",
                request->id_aeronave, request->id_sector);
-        Sector * acquired_sector = &sectors[request->id_sector];         
-        return acquired_sector; // send the new sector to the aeronave
-    } else if (lock_result == EBUSY) {
-        // Sector is BUSY: mutex could not be acquired
+
+        // Immediately unlock (CCM must NOT keep the mutex locked)
+        pthread_mutex_unlock(&mutex_priorities[request->id_sector]->mutex_sector);
+
+        // Wake the aircraft; it will perform the actual acquire_sector() trylock
+        aeronaves[request->id_aeronave].aguardar = 0;
+
+        // Informative pointer returned
+        return &sectors[request->id_sector];
+    } 
+    else if (lock_result == EBUSY) {
         printf("[CONTROL_PRIORITY] Sector %d is busy. Adding aircraft %d to waiting list.\n", 
                request->id_sector, request->id_aeronave);
-        
-        // Add the aircraft to the waiting list of this sector
-        insert_aeronave_mutex_priority(mutex_priorities[request->id_sector], 
-                                       &aeronaves[request->id_aeronave]);
-        
+
+        insert_aeronave_mutex_priority(
+            mutex_priorities[request->id_sector], &aeronaves[request->id_aeronave]
+        );
+
         printf("[CONTROL_PRIORITY] Aircraft %d added to waiting list for sector %d.\n", 
                request->id_aeronave, request->id_sector);
-        return NULL; // section not available : aeronave must wait
-    } else {
-        // Unexpected error from pthread_mutex_trylock
+
+        return NULL;
+    } 
+    else {
         printf("[CONTROL_PRIORITY] Error: pthread_mutex_trylock failed with code %d.\n", lock_result);
         return NULL;
     }

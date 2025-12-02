@@ -18,36 +18,31 @@ void* thread_aeronave_function(void *arg) {
 
 void* thread_centralized_control_mechanism(void *arg) {
     int number_aeronaves = *((int *)arg);
+    (void)number_aeronaves; // Mark as intentionally unused
     printf("[CCM_THREAD] Centralized Control Mechanism thread started\n");
     
-    // Main loop: continuously check for incoming requests
+    // Main loop: continuously process requests from the queue
     while (1) {
-        // Lock the global request mutex to safely check if there's a pending request
-        pthread_mutex_lock(&centralized_control_mechanism->mutex_request);
+        // Dequeue a request from the front of the queue (FIFO)
+        RequestSector * current_request = dequeue_request(centralized_control_mechanism);
         
         // Check if there is a valid request
-        if (centralized_control_mechanism->request != NULL) {
+        if (current_request != NULL) {
             printf("[CCM_THREAD] Processing request: Aircraft %d for Sector %d\n", 
-                   centralized_control_mechanism->request->id_aeronave,
-                   centralized_control_mechanism->request->id_sector);
+                   current_request->id_aeronave,
+                   current_request->id_sector);
             
             // Call control_priority to attempt to acquire the sector
-            Sector * result = control_priority(centralized_control_mechanism->request, 
+            Sector * result = control_priority(current_request, 
                                               centralized_control_mechanism->mutex_sections,
                                               &centralized_control_mechanism->mutex_request);
             
             if (result != NULL) {
                 printf("[CCM_THREAD] Request processed successfully. Sector assigned.\n");
             } else {
-                printf("[CCM_THREAD] Request queued. Aircraft added to waiting list.\n");
+                printf("[CCM_THREAD] Request queued in waiting list. Aircraft will wait.\n");
             }
-            
-            // Clear the request after processing
-            centralized_control_mechanism->request = NULL;
-        }
-        
-        // Unlock the mutex to allow aeronaves to submit requests
-        pthread_mutex_unlock(&centralized_control_mechanism->mutex_request);
+        } 
     }
     
     printf("[CCM_THREAD] Centralized Control Mechanism thread finished\n");

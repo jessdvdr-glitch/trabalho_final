@@ -34,8 +34,12 @@ typedef struct{
 typedef struct{
     MutexPriority ** mutex_sections; /* array of pointers to MutexPriority (one per sector) */
     int num_mutex_sections;          /* number of entries in mutex_sections */
-    RequestSector* request;          /* a single RequestSector object (may be NULL) */
-    pthread_mutex_t mutex_request;   /* mutex to protect `request` : one request at a time */
+    RequestSector * request_queue;   /* array of RequestSector objects acting as a FIFO queue */
+    int request_queue_size;          /* maximum size of the request queue */
+    int request_queue_front;         /* index of the front element (where we dequeue) */
+    int request_queue_rear;          /* index of the rear element (where we enqueue) */
+    int request_queue_count;         /* current number of requests in the queue */
+    pthread_mutex_t mutex_request;   /* mutex to protect `request_queue` : one request at a time */
 }CentralizedControlMechanism;
 
 // global variables
@@ -76,6 +80,9 @@ int is_full_mutex_priority(MutexPriority * mutex_priority);
 // CentralizedControlMechanism functions
 CentralizedControlMechanism* create_centralized_control_mechanism(int aeronaves_number);
 void destroy_centralized_control_mechanism(CentralizedControlMechanism * ccm);
+int enqueue_request(CentralizedControlMechanism * ccm, RequestSector * request);
+RequestSector* dequeue_request(CentralizedControlMechanism * ccm);
+int is_request_queue_empty(CentralizedControlMechanism * ccm);
 Sector* control_priority(RequestSector* request, MutexPriority ** mutex_priorities, pthread_mutex_t * mutex_request);
 int prevent_deadlock(RequestSector* requests, MutexPriority * mutex_priorities, int number_aeronaves); // not shure about the paramèters 
 

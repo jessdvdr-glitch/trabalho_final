@@ -175,10 +175,23 @@ CentralizedControlMechanism* create_centralized_control_mechanism(int aeronaves_
     }
   }
 
-  ccm->request = NULL;
+  // Initialize request queue with large capacity
+  ccm->request_queue_size = aeronaves_number * 10; // Large queue capacity
+  ccm->request_queue = calloc(ccm->request_queue_size, sizeof(RequestSector));
+  if (!ccm->request_queue) {
+    for (int i = 0; i < aeronaves_number; ++i) destroy_mutex_priority(ccm->mutex_sections[i]);
+    free(ccm->mutex_sections);
+    free(ccm);
+    return NULL;
+  }
+  ccm->request_queue_front = 0;
+  ccm->request_queue_rear = 0;
+  ccm->request_queue_count = 0;
+
   if (pthread_mutex_init(&ccm->mutex_request, NULL) != 0) {
     for (int i = 0; i < aeronaves_number; ++i) destroy_mutex_priority(ccm->mutex_sections[i]);
     free(ccm->mutex_sections);
+    free(ccm->request_queue);
     free(ccm);
     return NULL;
   }
@@ -192,14 +205,69 @@ void destroy_centralized_control_mechanism(CentralizedControlMechanism * ccm) {
     destroy_mutex_priority(ccm->mutex_sections[i]);
   }
   free(ccm->mutex_sections);
-  if (ccm->request) free(ccm->request);
+  free(ccm->request_queue);
   pthread_mutex_destroy(&ccm->mutex_request);
   free(ccm);
+}
+
+// Enqueue a request to the back of the queue
+int enqueue_request(CentralizedControlMechanism * ccm, RequestSector * request) {
+    if (!ccm || !request) return -1;
+    
+    pthread_mutex_lock(&ccm->mutex_request);
+    
+    // Check if queue is full
+    if (ccm->request_queue_count >= ccm->request_queue_size) {
+        printf("[ENQUEUE] Error: Request queue is full. Cannot enqueue request.\n");
+        pthread_mutex_unlock(&ccm->mutex_request);
+        return -1;
+    }
+    
+    // Add request to the rear of the queue
+    ccm->request_queue[ccm->request_queue_rear] = *request;
+    ccm->request_queue_rear = (ccm->request_queue_rear + 1) % ccm->request_queue_size;
+    ccm->request_queue_count++;
+    
+    printf("[ENQUEUE] Request queued. Aircraft %d for Sector %d. Queue size: %d\n",
+           request->id_aeronave, request->id_sector, ccm->request_queue_count);
+    
+    pthread_mutex_unlock(&ccm->mutex_request);
+    return 0;
+}
+
+// Dequeue a request from the front of the queue
+RequestSector* dequeue_request(CentralizedControlMechanism * ccm) {
+    if (!ccm) return NULL;
+    
+    pthread_mutex_lock(&ccm->mutex_request);
+    
+    // Check if queue is empty
+    if (ccm->request_queue_count == 0) {
+        pthread_mutex_unlock(&ccm->mutex_request);
+        return NULL;
+    }
+    
+    // Get request from front of queue
+    RequestSector * request = &ccm->request_queue[ccm->request_queue_front];
+    ccm->request_queue_front = (ccm->request_queue_front + 1) % ccm->request_queue_size;
+    ccm->request_queue_count--;
+    
+    printf("[DEQUEUE] Request dequeued. Aircraft %d for Sector %d. Remaining: %d\n",
+           request->id_aeronave, request->id_sector, ccm->request_queue_count);
+    
+    pthread_mutex_unlock(&ccm->mutex_request);
+    return request;
+}
+
+// Check if queue is empty (must be called with mutex locked)
+int is_request_queue_empty(CentralizedControlMechanism * ccm) {
+    return ccm->request_queue_count == 0 ? 1 : 0;
 }
 
 
 Sector* control_priority(RequestSector* request, MutexPriority ** mutex_priorities, 
                      pthread_mutex_t * mutex_request) {
+    (void)mutex_request; // Mark as intentionally unused
     // Check if request pointer is NULL
     if (request == NULL) {
         printf("[CONTROL_PRIORITY] Error: request pointer is NULL. Exiting function.\n");

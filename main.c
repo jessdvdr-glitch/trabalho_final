@@ -3,6 +3,10 @@
 #include<pthread.h>
 #include "structures.h"
 
+// global variables
+Sector * sectors;
+Aeronave * aeronaves;
+CentralizedControlMechanism * centralized_control_mechanism;
 
 void* thread_aeronave_function(void *arg) {
     Aeronave id = *((Aeronave *)arg);
@@ -12,7 +16,7 @@ void* thread_aeronave_function(void *arg) {
 }
 
 void* thread_centralized_control_mechanism(void *arg) {
-    CentralizedControlMechanism id = *((CentralizedControlMechanism *)arg);
+    (void)arg; // Mark as intentionally unused
     printf("Centralized Control Mechanism started\n");
     pthread_exit(NULL);
     return NULL;
@@ -28,9 +32,9 @@ int main(int argc, char *argv[]) {
     int number_sectors = atoi(argv[1]);
     int number_aeronaves = atoi(argv[2]);
     // initialize structures
-    Sector * sectors = malloc(sizeof(Sector) * number_sectors);
-    Aeronave * aeronaves = malloc(sizeof(Aeronave) * number_aeronaves);
-    CentralizedControlMechanism centralized_control_mechanism = create_centralized_control_mechanism();
+    sectors = malloc(sizeof(Sector) * number_sectors);
+    aeronaves = malloc(sizeof(Aeronave) * number_aeronaves);
+    centralized_control_mechanism = create_centralized_control_mechanism(number_aeronaves);
 
     for (int i = 0; i < number_sectors; i++) {
         sectors[i] = create_sector(i);
@@ -59,7 +63,7 @@ int main(int argc, char *argv[]) {
     // TODO : verify if all the destroy are correct
     free(sectors);
     free(aeronaves);
-    destroy_centralized_control_mechanism(&centralized_control_mechanism);
+    destroy_centralized_control_mechanism(centralized_control_mechanism);
     printf("Main thread finished\n");
     return 0; 
 }    

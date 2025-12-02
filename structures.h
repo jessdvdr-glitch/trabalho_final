@@ -1,8 +1,9 @@
 #ifndef STRUCTURES_H
 #define STRUCTURES_H
-
-#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include <pthread.h>
+#include <errno.h>
 
 typedef struct{
     int id;
@@ -31,9 +32,20 @@ typedef struct{
 }MutexPriority;
 
 typedef struct{
-    pthread_mutex_t mutex_request;
-    MutexPriority ** priority_mutexes;
+    MutexPriority ** mutex_sections; /* array of pointers to MutexPriority (one per sector) */
+    int num_mutex_sections;          /* number of entries in mutex_sections */
+    RequestSector * request_queue;   /* array of RequestSector objects acting as a FIFO queue */
+    int request_queue_size;          /* maximum size of the request queue */
+    int request_queue_front;         /* index of the front element (where we dequeue) */
+    int request_queue_rear;          /* index of the rear element (where we enqueue) */
+    int request_queue_count;         /* current number of requests in the queue */
+    pthread_mutex_t mutex_request;   /* mutex to protect `request_queue` : one request at a time */
 }CentralizedControlMechanism;
+
+// global variables
+extern Sector * sectors;
+extern Aeronave * aeronaves;
+extern CentralizedControlMechanism * centralized_control_mechanism;
 
 // Sectors list fonctions 
 Sector create_sector(int number_sectors);
@@ -67,15 +79,18 @@ int is_empty_mutex_priority(MutexPriority * mutex_priority);
 int is_full_mutex_priority(MutexPriority * mutex_priority);
 
 // CentralizedControlMechanism functions
-CentralizedControlMechanism create_centralized_control_mechanism();
 void init_centralized_control(CentralizedControlMechanism * ccm);
 
-void destroy_centralized_control_mechanism(CentralizedControlMechanism * ccm);
-int control_priority(RequestSector* requests, MutexPriority * mutex_priorities, int number_aeronaves);
 int prevent_deadlock(RequestSector* requests, MutexPriority * mutex_priorities, int number_aeronaves); // not sure about the paramèters 
 // thought of smth like this: if an aeronave tries to acquire the access to the next sector, there will be a timeout
 // if it times out, it stops trying to acquire the next sector, waits a little bit (important to be a random time) and then
 // tries again
 Sector* get_next_sector(Aeronave * aeronave, Sector * sectors, int number_sectors);
+CentralizedControlMechanism* create_centralized_control_mechanism(int aeronaves_number);
+void destroy_centralized_control_mechanism(CentralizedControlMechanism * ccm);
+int enqueue_request(CentralizedControlMechanism * ccm, RequestSector * request);
+RequestSector* dequeue_request(CentralizedControlMechanism * ccm);
+int is_request_queue_empty(CentralizedControlMechanism * ccm);
+Sector* control_priority(RequestSector* request, MutexPriority ** mutex_priorities, pthread_mutex_t * mutex_request);
 
 #endif

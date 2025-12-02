@@ -1,7 +1,7 @@
-#include<stdio.h>
-#include<stdlib.h>
-#include<pthread.h>
-#include<unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <unistd.h>
 #include "structures.h"
 
 // global variables
@@ -55,6 +55,7 @@ void* thread_centralized_control_mechanism(void *arg) {
 
 int main(int argc, char *argv[]) {
     // doesn't have the right number of arguments
+    printf("tudo alocado dboas");
     if (argc != 3) {
         printf("Usage : %s <nombre1> <nombre2>\n", argv[0]);
         return 1; 
@@ -68,6 +69,7 @@ int main(int argc, char *argv[]) {
     sectors = malloc(sizeof(Sector*) * number_sectors);
     aeronaves = malloc(sizeof(Aeronave*) * number_aeronaves);
     centralized_control_mechanism = create_centralized_control_mechanism(number_sectors, number_aeronaves); // use sectors count
+
 
     for (int i = 0; i < number_sectors; i++) {
         sectors[i] = create_sector(i);

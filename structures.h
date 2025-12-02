@@ -79,14 +79,13 @@ int is_empty_mutex_priority(MutexPriority * mutex_priority);
 int is_full_mutex_priority(MutexPriority * mutex_priority);
 
 // CentralizedControlMechanism functions
-void init_centralized_control(CentralizedControlMechanism * ccm);
 
 int prevent_deadlock(RequestSector* requests, MutexPriority * mutex_priorities, int number_aeronaves); // not sure about the paramèters 
 // thought of smth like this: if an aeronave tries to acquire the access to the next sector, there will be a timeout
 // if it times out, it stops trying to acquire the next sector, waits a little bit (important to be a random time) and then
 // tries again
 Sector* get_next_sector(Aeronave * aeronave, Sector * sectors, int number_sectors);
-CentralizedControlMechanism* create_centralized_control_mechanism(int aeronaves_number);
+CentralizedControlMechanism* create_centralized_control_mechanism(int sections_number);
 void destroy_centralized_control_mechanism(CentralizedControlMechanism * ccm);
 int enqueue_request(CentralizedControlMechanism * ccm, RequestSector * request);
 RequestSector* dequeue_request(CentralizedControlMechanism * ccm);

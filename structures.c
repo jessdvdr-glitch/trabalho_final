@@ -226,19 +226,19 @@ int is_full_mutex_priority(MutexPriority * mutex_priority){
 
 
 // Sector CentralizedControlMechanism functions
-CentralizedControlMechanism* create_centralized_control_mechanism(int aeronaves_number) {
+CentralizedControlMechanism* create_centralized_control_mechanism(int sections_number) {
   CentralizedControlMechanism *ccm = malloc(sizeof(CentralizedControlMechanism));
   if (!ccm) return NULL;
 
-  ccm->num_mutex_sections = aeronaves_number;
-  ccm->mutex_sections = calloc(aeronaves_number, sizeof(MutexPriority*));
+  ccm->num_mutex_sections = sections_number;
+  ccm->mutex_sections = calloc(sections_number, sizeof(MutexPriority*));
   if (!ccm->mutex_sections) {
     free(ccm);
     return NULL;
   }
 
-  for (int i = 0; i < aeronaves_number; ++i) {
-    ccm->mutex_sections[i] = create_mutex_priority(aeronaves_number, i);
+  for (int i = 0; i < sections_number; ++i) {
+    ccm->mutex_sections[i] = create_mutex_priority(sections_number, i);
     if (!ccm->mutex_sections[i]) {
       for (int j = 0; j < i; ++j) destroy_mutex_priority(ccm->mutex_sections[j]);
       free(ccm->mutex_sections);
@@ -248,10 +248,10 @@ CentralizedControlMechanism* create_centralized_control_mechanism(int aeronaves_
   }
 
   // Initialize request queue with large capacity
-  ccm->request_queue_size = aeronaves_number * 10; // Large queue capacity
+  ccm->request_queue_size = sections_number * 10; // Large queue capacity
   ccm->request_queue = calloc(ccm->request_queue_size, sizeof(RequestSector));
   if (!ccm->request_queue) {
-    for (int i = 0; i < aeronaves_number; ++i) destroy_mutex_priority(ccm->mutex_sections[i]);
+    for (int i = 0; i < sections_number; ++i) destroy_mutex_priority(ccm->mutex_sections[i]);
     free(ccm->mutex_sections);
     free(ccm);
     return NULL;
@@ -261,7 +261,7 @@ CentralizedControlMechanism* create_centralized_control_mechanism(int aeronaves_
   ccm->request_queue_count = 0;
 
   if (pthread_mutex_init(&ccm->mutex_request, NULL) != 0) {
-    for (int i = 0; i < aeronaves_number; ++i) destroy_mutex_priority(ccm->mutex_sections[i]);
+    for (int i = 0; i < sections_number; ++i) destroy_mutex_priority(ccm->mutex_sections[i]);
     free(ccm->mutex_sections);
     free(ccm->request_queue);
     free(ccm);

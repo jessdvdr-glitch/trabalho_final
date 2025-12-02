@@ -47,10 +47,10 @@ extern Sector ** sectors;
 extern Aeronave ** aeronaves;
 extern CentralizedControlMechanism * centralized_control_mechanism;
 
-// Sectors list functions 
-Sector* create_sector(int id);
-void destroy_sector(Sector * sectors); 
-int insert_sector(Sector * sectors, Sector sector, int number_sectors);
+// Sectors list fonctions 
+Sector* create_sector(int number_sectors);
+void destroy_sectors(Sector * sectors); 
+int insert_sector(Sector * sectors, Sector sector);
 Sector remove_sector(Sector * sectors, int number_sectors, int id_sector);
 int is_empty_sectors(Sector * sectors, int number_sectors);
 int is_full_sectors(Sector * sectors, int number_sectors);
@@ -66,7 +66,7 @@ Sector* release_sector(Aeronave * aeronave);
 int repeat(Aeronave * aeronave);
 
 //RequestSector
-RequestSector create_request(int number_requests);
+RequestSector create_request(int number_sectors, int number_aeronaves);
 void destroy_requests(RequestSector * requests);
 
 // Sector MutexPriority functions (DONE)

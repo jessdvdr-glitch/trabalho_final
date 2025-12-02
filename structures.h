@@ -23,8 +23,11 @@ typedef struct{
 }RequestSector;
 
 typedef struct{
-    pthread_mutex_t mutex_sector; // /!\ use only pthread_mutex_try_lock() 
-    Aeronave * waiting_list;
+    int id; 
+    pthread_mutex_t mutex_sector; // /!\ use only pthread_mutex_try_lock()
+    int max_size;
+    Aeronave ** waiting_list; // pointer to pointer, because it's an array for the pointers to Aeronaves
+    int waiting_list_size;
 }MutexPriority;
 
 typedef struct{
@@ -54,14 +57,14 @@ int repeat(Aeronave * aeronave);
 RequestSector create_request(int number_requests);
 void destroy_requests(RequestSector * requests);
 
-// Sector MutexPriority functions
-MutexPriority create_mutex_priority(MutexPriority * mutex_priority, int max_size);
+// Sector MutexPriority functions (DONE)
+MutexPriority* create_mutex_priority(int max_size, int id);
 void destroy_mutex_priority(MutexPriority * mutex_priority);
-int order_by_priority(Aeronave * waiting_list, int size); // max size is the number of aeronaves
-void insert_aeronave_mutex_priority(MutexPriority * mutex_priority, Aeronave aeronave, int max_size);
-Aeronave remove_aeronave_mutex_priority(MutexPriority * mutex_priority, int max_size);
+int order_list_by_priority(MutexPriority * mutex_priority); // max size is the number of aeronaves
+void insert_aeronave_mutex_priority(MutexPriority * mutex_priority, Aeronave * aeronave);
+Aeronave* remove_aeronave_mutex_priority(MutexPriority * mutex_priority);
 int is_empty_mutex_priority(MutexPriority * mutex_priority);
-int is_full_mutex_priority(MutexPriority * mutex_priority, int max_size);
+int is_full_mutex_priority(MutexPriority * mutex_priority);
 
 // CentralizedControlMechanism functions
 CentralizedControlMechanism create_centralized_control_mechanism();
@@ -70,6 +73,9 @@ void init_centralized_control(CentralizedControlMechanism * ccm);
 void destroy_centralized_control_mechanism(CentralizedControlMechanism * ccm);
 int control_priority(RequestSector* requests, MutexPriority * mutex_priorities, int number_aeronaves);
 int prevent_deadlock(RequestSector* requests, MutexPriority * mutex_priorities, int number_aeronaves); // not sure about the paramèters 
+// thought of smth like this: if an aeronave tries to acquire the access to the next sector, there will be a timeout
+// if it times out, it stops trying to acquire the next sector, waits a little bit (important to be a random time) and then
+// tries again
 Sector* get_next_sector(Aeronave * aeronave, Sector * sectors, int number_sectors);
 
 #endif

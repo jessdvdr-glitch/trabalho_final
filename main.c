@@ -1,6 +1,7 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<pthread.h>
+#include<unistd.h>
 #include "structures.h"
 
 // global variables
@@ -16,11 +17,44 @@ void* thread_aeronave_function(void *arg) {
 }
 
 void* thread_centralized_control_mechanism(void *arg) {
-    (void)arg; // Mark as intentionally unused
-    printf("Centralized Control Mechanism started\n");
+    int number_aeronaves = *((int *)arg);
+    printf("[CCM_THREAD] Centralized Control Mechanism thread started\n");
+    
+    // Main loop: continuously check for incoming requests
+    while (1) {
+        // Lock the global request mutex to safely check if there's a pending request
+        pthread_mutex_lock(&centralized_control_mechanism->mutex_request);
+        
+        // Check if there is a valid request
+        if (centralized_control_mechanism->request != NULL) {
+            printf("[CCM_THREAD] Processing request: Aircraft %d for Sector %d\n", 
+                   centralized_control_mechanism->request->id_aeronave,
+                   centralized_control_mechanism->request->id_sector);
+            
+            // Call control_priority to attempt to acquire the sector
+            Sector * result = control_priority(centralized_control_mechanism->request, 
+                                              centralized_control_mechanism->mutex_sections,
+                                              &centralized_control_mechanism->mutex_request);
+            
+            if (result != NULL) {
+                printf("[CCM_THREAD] Request processed successfully. Sector assigned.\n");
+            } else {
+                printf("[CCM_THREAD] Request queued. Aircraft added to waiting list.\n");
+            }
+            
+            // Clear the request after processing
+            centralized_control_mechanism->request = NULL;
+        }
+        
+        // Unlock the mutex to allow aeronaves to submit requests
+        pthread_mutex_unlock(&centralized_control_mechanism->mutex_request);
+    }
+    
+    printf("[CCM_THREAD] Centralized Control Mechanism thread finished\n");
     pthread_exit(NULL);
     return NULL;
 }
+
 
 int main(int argc, char *argv[]) {
     // doesn't have the right number of arguments
@@ -47,7 +81,9 @@ int main(int argc, char *argv[]) {
     // initialize threads
     pthread_t * aeronaves_threads = malloc(sizeof(pthread_t) * number_aeronaves);
     pthread_t centralized_control_mechanism_thread;
-    pthread_create(&centralized_control_mechanism_thread, NULL, (void *)thread_centralized_control_mechanism, (void *)&centralized_control_mechanism);
+    int *num_aero_ptr = malloc(sizeof(int));
+    *num_aero_ptr = number_aeronaves;
+    pthread_create(&centralized_control_mechanism_thread, NULL, thread_centralized_control_mechanism, (void *)num_aero_ptr);
 
     for(int j = 0; j < number_aeronaves; j++) {
         pthread_create(&aeronaves_threads[j], NULL, (void *)thread_aeronave_function, (void *)&aeronaves[j]);
@@ -64,6 +100,7 @@ int main(int argc, char *argv[]) {
     free(sectors);
     free(aeronaves);
     destroy_centralized_control_mechanism(centralized_control_mechanism);
+    free(num_aero_ptr);
     printf("Main thread finished\n");
     return 0; 
 }    

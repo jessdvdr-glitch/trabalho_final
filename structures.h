@@ -13,6 +13,7 @@ typedef struct{
     int id;
     int priority;
     int * rota;
+    int tam_rota;
     int current_index_rota;
     Sector * current_sector;
     int aguardar;
@@ -21,6 +22,7 @@ typedef struct{
 typedef struct{
     int id_sector;
     int id_aeronave;
+    int request_type; // 0 if it's for entrance, 1 if it's a flag that the sector is available
 }RequestSector;
 
 typedef struct{
@@ -56,7 +58,7 @@ int is_empty_sectors(Sector * sectors, int number_sectors);
 int is_full_sectors(Sector * sectors, int number_sectors);
 
 // Aeronave functions
-Aeronave* create_aeronave(int id);
+Aeronave* create_aeronave(int id, int priority, int tam_rota);
 void init_aeronave(Aeronave * aeronave);
 void destroy_aeronaves(Aeronave * aeronaves);
 int request_sector(Aeronave * aeronave, int id_sector);

@@ -63,6 +63,7 @@ int main(int argc, char *argv[]) {
     srand(time(NULL));
     int number_sectors = atoi(argv[1]);
     int number_aeronaves = atoi(argv[2]);
+    int max_tam_rota = number_sectors * 2; // max route size arbitrarily defined as this
     // initialize structures
     sectors = malloc(sizeof(Sector*) * number_sectors);
     aeronaves = malloc(sizeof(Aeronave*) * number_aeronaves);
@@ -73,8 +74,8 @@ int main(int argc, char *argv[]) {
     }
     
     for (int j = 0; j < number_aeronaves; j++) {
-        aeronaves[j] = create_aeronave(j);
-    }
+        aeronaves[j] = create_aeronave(j, rand() % 1000, rand() % max_tam_rota);
+    }                                      // random priority,   random route size
 
     // initialize threads
     pthread_t * aeronaves_threads = malloc(sizeof(pthread_t) * number_aeronaves);

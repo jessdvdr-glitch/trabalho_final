@@ -50,7 +50,7 @@ extern CentralizedControlMechanism * centralized_control_mechanism;
 // Sectors list fonctions 
 Sector create_sector(int number_sectors);
 void destroy_sectors(Sector * sectors); 
-int insert_sector(Sector * sectors, Sector sector, int number_sectors);
+int insert_sector(Sector * sectors, Sector sector);
 Sector remove_sector(Sector * sectors, int number_sectors, int id_sector);
 int is_empty_sectors(Sector * sectors, int number_sectors);
 int is_full_sectors(Sector * sectors, int number_sectors);

@@ -6,35 +6,98 @@
 #include <errno.h>   // EBUSY for pthread_mutex_trylock return
 
 // Sector functions
+// This function creates an individual sector with a given id
 Sector create_sector(int id) {
     Sector s;
     s.id = id;
     return s;
 }
 
+// Frees the dynamically allocated memory for the sectors array
 void destroy_sectors(Sector * sectors) {
-    if (sectors) free(sectors);
+    if (sectors != NULL) {
+        free(sectors);
+    }
 }
 
-int insert_sector(Sector * sectors, Sector sector, int number_sectors) {
-    (void)sectors; (void)sector; (void)number_sectors;
-    return 0; // Placeholder
+// Inserts a specific sector in the list at index sector.id
+// Returns 0 on success, -1 on error
+int insert_sector(Sector * sectors, Sector sector) {
+    if (sectors == NULL) {
+        printf("[INSERT_SECTOR] Error: sectors array is NULL\n");
+        return -1;
+    }
+    
+    // The sector is inserted directly at the index corresponding to its ID
+    sectors[sector.id] = sector;
+    printf("[INSERT_SECTOR] Sector %d inserted successfully\n", sector.id);
+    return 0;
 }
 
+// Removes a sector whose id is passed as parameter and returns it
+// Returns a sector with id = -1 if error
 Sector remove_sector(Sector * sectors, int number_sectors, int id_sector) {
-    (void)sectors; (void)number_sectors; (void)id_sector;
-    Sector s = {-1};
-    return s; // Placeholder
+    Sector s = {-1}; // Invalid sector by default
+    
+    // Check that the list is not empty
+    if (is_empty_sectors(sectors, number_sectors)) {
+        printf("[REMOVE_SECTOR] Error: sectors list is empty\n");
+        return s;
+    }
+    
+    if (sectors == NULL) {
+        printf("[REMOVE_SECTOR] Error: sectors array is NULL\n");
+        return s;
+    }
+    
+    // Check that the id is valid
+    if (id_sector < 0 || id_sector >= number_sectors) {
+        printf("[REMOVE_SECTOR] Error: invalid sector id %d\n", id_sector);
+        return s;
+    }
+    
+    // Get the sector before marking it as invalid
+    s = sectors[id_sector];
+    
+    // Mark the sector as removed by setting its id to -1
+    sectors[id_sector].id = -1;
+    
+    printf("[REMOVE_SECTOR] Sector %d removed successfully\n", id_sector);
+    return s;
 }
 
+// Checks if the sectors list is empty (all sectors have id = -1)
+// Returns 1 if empty, 0 otherwise
 int is_empty_sectors(Sector * sectors, int number_sectors) {
-    (void)sectors; (void)number_sectors;
-    return 0; // Placeholder
+    if (sectors == NULL) {
+        return 1; // Considered empty if NULL
+    }
+    
+    // Iterate through all sectors to check if there is at least one valid
+    for (int i = 0; i < number_sectors; i++) {
+        if (sectors[i].id != -1) {
+            return 0; // At least one valid sector found
+        }
+    }
+    
+    return 1; // All sectors are invalid (id = -1)
 }
 
+// Checks if the sectors list is full (all sectors have a valid id >= 0)
+// Returns 1 if full, 0 otherwise
 int is_full_sectors(Sector * sectors, int number_sectors) {
-    (void)sectors; (void)number_sectors;
-    return 0; // Placeholder
+    if (sectors == NULL) {
+        return 0; // Considered not full if NULL
+    }
+    
+    // Iterate through all sectors to check if they are all valid
+    for (int i = 0; i < number_sectors; i++) {
+        if (sectors[i].id == -1) {
+            return 0; // At least one invalid sector found
+        }
+    }
+    
+    return 1; // All sectors are valid
 }
 
 extern Sector *sectors;

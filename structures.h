@@ -4,9 +4,12 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <errno.h>
+#include <semaphore.h>
 
 typedef struct{
     int id;
+    int busy;
+    int id_aeronave_occupying;
 }Sector; 
 
 typedef struct{
@@ -42,6 +45,8 @@ typedef struct{
     int request_queue_rear;          /* index of the rear element (where we enqueue) */
     int request_queue_count;         /* current number of requests in the queue */
     pthread_mutex_t mutex_request;   /* mutex to protect `request_queue` : one request at a time */
+    sem_t * semaphores_aeronaves;   /* array of semaphores to avoid busy waiting */
+    int num_semaphores_aeronaves;
 }CentralizedControlMechanism;
 
 // global variables
@@ -64,7 +69,7 @@ void destroy_aeronaves(Aeronave * aeronaves);
 int request_sector(Aeronave * aeronave, int id_sector);
 int wait_sector(Aeronave * aeronave);
 int acquire_sector(Aeronave * aeronave, Sector * sector);
-Sector* release_sector(Aeronave * aeronave);
+Sector* release_sector(Aeronave * aeronave, Sector* to_release);
 int repeat(Aeronave * aeronave);
 
 //RequestSector

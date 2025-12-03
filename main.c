@@ -1,3 +1,4 @@
+#define _DEFAULT_SOURCE  // Enable usleep and other POSIX features
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -38,17 +39,20 @@ void* thread_centralized_control_mechanism(void *arg) {
                                               centralized_control_mechanism->mutex_sections,
                                               &centralized_control_mechanism->mutex_request);
             
-            if (result != NULL) {
-                if(current_request->request_type == 0){
-                    printf("[CCM_THREAD] Request processed successfully. Sector %d assigned.\n", result->id);
-                }
-                else{
-                    printf("[CCM_THREAD] Request processed successfully. Sector %d free.\n", result->id);
-                }
-            } else {
-                printf("[CCM_THREAD] Request queued in waiting list. Aircraft will wait.\n");
-            }
+            // if (result != NULL) {
+            //     if(current_request->request_type == 0){
+            //         //printf("[CCM_THREAD] Request processed successfully. Sector %d assigned.\n", result->id);
+            //     }
+            //     else{
+            //         //printf("[CCM_THREAD] Request processed successfully. Sector %d free.\n", result->id);
+            //     }
+            // } else {
+            //     //printf("[CCM_THREAD] Sector busy. Aircraft will wait.\n");
+            // }
         } 
+        else{
+            usleep(100);
+        }
     }
     
     printf("[CCM_THREAD] Centralized Control Mechanism thread finished\n");
@@ -68,7 +72,7 @@ int main(int argc, char *argv[]) {
     srand(time(NULL));
     int number_sectors = atoi(argv[1]);
     int number_aeronaves = atoi(argv[2]);
-    int max_tam_rota = number_sectors * 2; // max route size arbitrarily defined as this
+    int max_tam_rota = number_sectors*2; // max route size arbitrarily defined as this
     // initialize structures
     sectors = malloc(sizeof(Sector*) * number_sectors);
     aeronaves = malloc(sizeof(Aeronave*) * number_aeronaves);
@@ -102,7 +106,7 @@ int main(int argc, char *argv[]) {
     }
 
     free(aeronaves_threads);
-    // TODO : verify if all the destroy are correct
+    // TODO : really use the destroy functions
     free(sectors);
     free(aeronaves);
     destroy_centralized_control_mechanism(centralized_control_mechanism);

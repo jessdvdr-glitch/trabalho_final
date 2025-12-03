@@ -38,7 +38,8 @@ typedef struct{
 
 typedef struct{
     MutexPriority ** mutex_sections; /* array of pointers to MutexPriority (one per sector) */
-    int num_mutex_sections;          /* number of entries in mutex_sections (== num_sectors) */
+    int num_mutex_sections;          /* number of entries in mutex_sections */
+    int num_sectors;
     RequestSector * request_queue;   /* array of RequestSector objects acting as a FIFO queue */
     int request_queue_size;          /* maximum size of the request queue */
     int request_queue_front;         /* index of the front element (where we dequeue) */
@@ -84,6 +85,7 @@ void destroy_mutex_priority(MutexPriority * mutex_priority);
 int order_list_by_priority(MutexPriority * mutex_priority); // max size is the number of aeronaves
 void insert_aeronave_mutex_priority(MutexPriority * mutex_priority, Aeronave * aeronave);
 Aeronave* remove_aeronave_mutex_priority(MutexPriority * mutex_priority);
+Aeronave* remove_aeronave_mutex_priority_by_id(MutexPriority * mutex_priority, int id_aeronave);
 int is_empty_mutex_priority(MutexPriority * mutex_priority);
 int is_full_mutex_priority(MutexPriority * mutex_priority);
 

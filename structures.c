@@ -16,6 +16,26 @@ extern Sector **sectors;
 extern Aeronave **aeronaves;
 extern CentralizedControlMechanism *centralized_control_mechanism;
 
+#define printf(format, ...) { \
+    char t_buff[64]; \
+    current_timestamp(t_buff, sizeof(t_buff)); \
+    fprintf(stdout, "[%s] " format, t_buff, ##__VA_ARGS__); \
+}
+
+void current_timestamp(char * buffer, size_t size){
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    struct tm * tm_info = localtime(&tv.tv_sec);
+    
+    // Formata: HH:MM:SS.milissegundos
+    char temp[64];
+    strftime(temp, sizeof(temp), "%H:%M:%S", tm_info);
+    snprintf(buffer, size, "%s.%07ld", temp, tv.tv_usec / 1000);
+}
+
+double get_time_diff(struct timespec start, struct timespec end) {
+    return (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
+}
 
 // Sector functions
 Sector* create_sector(int id) {
@@ -119,7 +139,7 @@ Aeronave* create_aeronave(int id, int priority, int tam_rota) {
     a->priority = priority;
     a->tam_rota = tam_rota;
     a->current_index_rota = 0;
-    a->aguardar = 0;
+    a->mean_wait_time = 0.0;
     
     // CRITICAL: Allocate memory for the rota array
     a->rota = malloc(sizeof(int) * tam_rota);
@@ -140,13 +160,13 @@ Aeronave* create_aeronave(int id, int priority, int tam_rota) {
         }
     }
     a->current_sector = NULL; //starting sector has to be undefined, because it has to wait for the permission of control 
-    printf("Aeronave %d started, priority level: %d\n", a->id, a->priority);           // updated variable name
-    printf("Route size: %d\n", a->tam_rota);
+    fprintf(stdout, "Aeronave %d started, priority level: %d\n", a->id, a->priority);           // updated variable name
+    fprintf(stdout, "Route size: %d\n", a->tam_rota);
     for(int i = 0; i < a->tam_rota; i++){
-            printf("%d -> ", a->rota[i]);
+            fprintf(stdout, "%d -> ", a->rota[i]);
     }
-    printf("\n");
-    printf("\n");
+    fprintf(stdout, "\n");
+    fprintf(stdout, "\n");
 
     return a;
 }
@@ -168,16 +188,19 @@ int request_sector(Aeronave * aeronave, int id_sector) {
     req.id_aeronave = aeronave->id;
     req.id_sector   = id_sector;
     req.request_type = 0;
-    aeronave->aguardar = 1; // before sending request (if it requests before, ccm can change it's attribute before entering wait_sector function)
     return enqueue_request(centralized_control_mechanism, &req);
 }
 
 // if the response of the request is NULL, the aeronave must wait
 int wait_sector(Aeronave * aeronave) {
     printf("\033[34m[AIRCRAFT %d] Started waiting\033[0m\n", aeronave->id);
+
+    struct timespec start, end; 
+    clock_gettime(CLOCK_REALTIME, &start); // t0
+    
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
-    ts.tv_sec += 1;
+    ts.tv_sec += 1; // 1 sec timeout
     int result;
 
     result = sem_timedwait(&centralized_control_mechanism->semaphores_aeronaves[aeronave->id], &ts);
@@ -192,6 +215,9 @@ int wait_sector(Aeronave * aeronave) {
     else{
         printf("\033[34m[AIRCRAFT %d] Is free\033[0m\n", aeronave->id);
     }
+
+    clock_gettime(CLOCK_REALTIME, &end); // t1 (until it enters the sector it really wants)
+    aeronave->mean_wait_time += get_time_diff(start, end); // accumulates
     return 0;
 }
 
@@ -619,8 +645,8 @@ Sector* control_priority(RequestSector* request, MutexPriority ** mutex_prioriti
             return sectors[request->id_sector];
         } 
         else if (is_busy == 1) {
-            printf("[CONTROL_PRIORITY] Sector %d is occupied by aircraft %d. Adding aircraft %d to waiting list.\n", 
-                request->id_sector, sectors[request->id_sector]->id_aeronave_occupying, request->id_aeronave);
+            printf("[CONTROL_PRIORITY] Sector %d is occupied by aircraft %d. Adding aircraft %d to waiting list. Priority level: %d\n", 
+                request->id_sector, sectors[request->id_sector]->id_aeronave_occupying, request->id_aeronave, aeronaves[request->id_aeronave]->priority);
             
             insert_aeronave_mutex_priority(
                 mutex_priorities[request->id_sector], aeronaves[request->id_aeronave]

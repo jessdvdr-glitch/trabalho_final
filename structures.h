@@ -5,6 +5,9 @@
 #include <pthread.h>
 #include <errno.h>
 #include <semaphore.h>
+#include <sys/time.h>
+
+void current_timestamp(char * buffer, size_t size);
 
 typedef struct{
     int id;
@@ -19,7 +22,7 @@ typedef struct{
     int tam_rota;
     int current_index_rota;
     Sector * current_sector;
-    int aguardar;
+    double mean_wait_time;
 }Aeronave;
 
 typedef struct{
@@ -57,7 +60,6 @@ extern CentralizedControlMechanism * centralized_control_mechanism;
 
 // Sectors list fonctions 
 Sector* create_sector(int number_sectors);
-void destroy_sectors(Sector * sectors); 
 void destroy_sector(Sector * sector);
 int insert_sector(Sector * sectors, Sector sector);
 Sector remove_sector(Sector * sectors, int number_sectors, int id_sector);
@@ -67,7 +69,7 @@ int is_full_sectors(Sector * sectors, int number_sectors);
 // Aeronave functions
 Aeronave* create_aeronave(int id, int priority, int tam_rota);
 void init_aeronave(Aeronave * aeronave);
-void destroy_aeronaves(Aeronave * aeronaves);
+void destroy_aeronave(Aeronave * aeronave);
 int request_sector(Aeronave * aeronave, int id_sector);
 int wait_sector(Aeronave * aeronave);
 void flush_network(Aeronave * a);
@@ -91,13 +93,6 @@ int is_full_mutex_priority(MutexPriority * mutex_priority);
 
 // CentralizedControlMechanism functions
 CentralizedControlMechanism* create_centralized_control_mechanism(int sectors_number, int aeronaves_number);
-void init_centralized_control(CentralizedControlMechanism * ccm);
-
-int prevent_deadlock(RequestSector* requests, MutexPriority * mutex_priorities, int number_aeronaves); // not sure about the paramèters 
-// thought of smth like this: if an aeronave tries to acquire the access to the next sector, there will be a timeout
-// if it times out, it stops trying to acquire the next sector, waits a little bit (important to be a random time) and then
-// tries again
-Sector* get_next_sector(Aeronave * aeronave, Sector * sectors, int number_sectors);
 void destroy_centralized_control_mechanism(CentralizedControlMechanism * ccm);
 int enqueue_request(CentralizedControlMechanism * ccm, RequestSector * request);
 RequestSector* dequeue_request(CentralizedControlMechanism * ccm);

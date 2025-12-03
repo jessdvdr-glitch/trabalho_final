@@ -128,12 +128,25 @@ int main(int argc, char *argv[]) {
     }
     pthread_join(centralized_control_mechanism_thread, NULL);
 
+    printf("Routes finished\n");
+    printf("Mean waiting times (only considers from request to acquirement of the sector it wanted. That is: keeps counting while in BACKUP)\n");
+    for(int i = 0; i < number_aeronaves; i++){
+        printf("[AIRCRAFT %d] Mean waiting time: %.5f\n", i, aeronaves[i]->mean_wait_time/aeronaves[i]->tam_rota);
+    }
+    
+
     free(aeronaves_threads);
     free(thread_returns);
     // TODO : really use the destroy functions
+    for (int i = 0; i < number_sectors+number_aeronaves; i++) {
+        destroy_sector(sectors[i]);
+    }
     free(sectors);
     free(aux_sectors);
     pthread_mutex_destroy(&aux_mutex);
+    for (int i = 0; i < number_aeronaves; i++) {
+        destroy_aeronave(aeronaves[i]);
+    }
     free(aeronaves);
     destroy_centralized_control_mechanism(centralized_control_mechanism);
     printf("Main thread finished\n");

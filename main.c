@@ -30,7 +30,7 @@ void* thread_aeronave_function(void *arg) {
 
 void* thread_centralized_control_mechanism(void *arg) {
     (void)arg;
-    printf("[CCM_THREAD] Centralized Control Mechanism thread started\n");
+    printf("\033[32m[CCM_THREAD] Centralized Control Mechanism thread started\033[0m\n");
     
     // Main loop: continuously process requests from the queue
     while (1) {
@@ -39,7 +39,7 @@ void* thread_centralized_control_mechanism(void *arg) {
         
         // Check if there is a valid request
         if (current_request != NULL) {
-            printf("[CCM_THREAD] Processing request: Aircraft %d for Sector %d\n", 
+            printf("\033[32m[CCM_THREAD] Processing request: Aircraft %d for Sector %d\033[0m\n", 
                    current_request->id_aeronave,
                    current_request->id_sector);
             
@@ -68,7 +68,7 @@ void* thread_centralized_control_mechanism(void *arg) {
         }
     }
     
-    printf("[CCM_THREAD] Centralized Control Mechanism thread finished\n");
+    printf("\033[32m[CCM_THREAD] Centralized Control Mechanism thread finished\033[0m\n");
     pthread_exit(NULL);
     return NULL;
 }

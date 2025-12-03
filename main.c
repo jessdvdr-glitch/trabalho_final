@@ -32,17 +32,39 @@ void* thread_centralized_control_mechanism(void *arg) {
             printf("[CCM_THREAD] Processing request: Aircraft %d for Sector %d\n", 
                    current_request->id_aeronave,
                    current_request->id_sector);
-            
-            // Call control_priority to attempt to acquire the sector
-            // The call remains the same, the change was inside control_priority()
-            Sector * result = control_priority(current_request, 
-                                              centralized_control_mechanism->mutex_sections,
-                                              &centralized_control_mechanism->mutex_request);
-            
-            if (result != NULL) {
-                printf("[CCM_THREAD] Request processed successfully. Sector assigned.\n");
-            } else {
-                printf("[CCM_THREAD] Request queued in waiting list. Aircraft will wait.\n");
+            if(current_request->request_type == 0) {
+                printf("\033[0;31mDEMANDE ACCES SECTEUR!!!\033[0m\n");
+
+                // Call control_priority to attempt to acquire the sector
+                // The call remains the same, the change was inside control_priority()
+                Sector * result = control_priority(current_request, 
+                                                centralized_control_mechanism->mutex_sections,
+                                                &centralized_control_mechanism->mutex_request);
+                
+                if (result != NULL) {
+                    printf("[CCM_THREAD] Request processed successfully. Sector assigned.\n");
+                } else {
+                    printf("[CCM_THREAD] Request queued in waiting list. Aircraft will wait.\n");
+                }
+            }else if (current_request->request_type == 1) {
+                printf("\033[0;31mDEMANDE LIBERATION SECTEUR!!!!\033[0m\n");
+                    // Release event: sector was freed by an aircraft
+                    // Ask MutexPriority for the next waiting aircraft (if any) and wake it
+                    printf("[CCM_THREAD] Release event from Aircraft %d for Sector %d\n",
+                           current_request->id_aeronave, current_request->id_sector);
+
+                    // Use the same control function: for request_type == 1 it removes the next from waiting list
+                    Sector * result = control_priority(current_request,
+                                                     centralized_control_mechanism->mutex_sections,
+                                                     &centralized_control_mechanism->mutex_request);
+                    if (result != NULL) {
+                        // control_priority already wakes the next aircraft (aguardar = 0) if one exists
+                        printf("[CCM_THREAD] Release processed. Next aircraft (if any) notified.\n");
+                    }
+                        
+            }else{
+                printf("[CCM_THREAD] Error: Unknown request type %d from Aircraft %d\n",
+                       current_request->request_type, current_request->id_aeronave);
             }
         } 
     }
@@ -91,6 +113,7 @@ int main(int argc, char *argv[]) {
                        thread_aeronave_function, (void *)aeronaves[j]);   // function uses real pointer now
     }
 
+    // TODO USE JOIN?
     pthread_detach(centralized_control_mechanism_thread); // controlador roda em loop; não fazer join
     
     for(int j = 0; j < number_aeronaves; j++) {

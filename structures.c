@@ -7,6 +7,11 @@
 #include <errno.h>   // EBUSY for pthread_mutex_trylock return
 #include <time.h>  //sleep for random time
 
+// variables for treating the deadlocks
+extern Sector * aux_sector;
+extern pthread_mutex_t aux_mutex;
+extern int aux_var;
+
 extern Sector **sectors;
 extern Aeronave **aeronaves;
 extern CentralizedControlMechanism *centralized_control_mechanism;
@@ -170,9 +175,69 @@ int request_sector(Aeronave * aeronave, int id_sector) {
 // if the response of the request is NULL, the aeronave must wait
 int wait_sector(Aeronave * aeronave) {
     printf("\033[34m[AIRCRAFT %d] Started waiting\033[0m\n", aeronave->id);
-    sem_wait(&centralized_control_mechanism->semaphores_aeronaves[aeronave->id]);
-    printf("\033[34m[AIRCRAFT %d] Is free\033[0m\n", aeronave->id);
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    ts.tv_sec += 1;
+    int result;
+
+    result = sem_timedwait(&centralized_control_mechanism->semaphores_aeronaves[aeronave->id], &ts);
+    if(result == -1){
+        if(errno = ETIMEDOUT){
+            flush_network(aeronave);
+        }
+        else{
+            printf("\033[34m[AIRCRAFT %d] sem_timedwait error\033[0m\n", aeronave->id);
+        }
+    }
+    else{
+        printf("\033[34m[AIRCRAFT %d] Is free\033[0m\n", aeronave->id);
+    }
     return 0;
+}
+
+// Pequena função interna para obter o próximo setor da rota (terminada com -1)
+static int aeronave_next_sector_id(Aeronave *a) {
+    if (!a || !a->rota) return -1;
+    return a->rota[a->current_index_rota];
+}
+
+
+// if the system is clogged in deadlock, we "flush" it and release the network with this function
+void flush_network(Aeronave * a){
+    pthread_mutex_lock(&aux_mutex);
+    if(aux_var == 0){
+        printf("\033[34m[AIRCRAFT %d] DEADLOCK DETECTED! ENTERING BACKUP SECTOR\033[0m\n", a->id);
+        aux_var = 1;
+        // Request access to the backup sector
+        request_sector(a, centralized_control_mechanism->num_mutex_sections); // request to enter backup
+    
+        // Wait CCM authorization 
+        wait_sector(a);
+        Sector* to_release = a->current_sector;
+        
+        // Acquire (trylock) after authorization it should be available
+        while (!acquire_sector(a, sectors[centralized_control_mechanism->num_mutex_sections])) {
+            usleep(100);
+        }
+
+        release_sector(a, to_release); // release the current one
+
+        printf("\033[34m[AIRCRAFT %d] Entered sector backup sector (id = %d)\033[0m\n", a->id, a->current_sector->id);
+
+        // wait a little, until the net is unclogged
+        usleep(100);
+
+    }
+    pthread_mutex_unlock(&aux_mutex);
+    if(a->id == sectors[centralized_control_mechanism->num_mutex_sections]->id_aeronave_occupying){ // if it has entered the backup, it asks to go to the sector it was trying to access
+        int next_id = aeronave_next_sector_id(a);
+
+        // Request access to the next sector
+        request_sector(a, next_id);
+
+    }
+    // Wait CCM authorization 
+    wait_sector(a);
 }
 
 // if the response of the request is a Sector*, the aeronave can acquire it
@@ -184,9 +249,15 @@ int acquire_sector(Aeronave * aeronave, Sector * sector) {
     MutexPriority *mp = centralized_control_mechanism->mutex_sections[sid];
     int rc = pthread_mutex_trylock(&mp->mutex_sector);
     if (rc == 0) {
-        printf("\033[34m[AIRCRAFT %d] Acquired sector %d\033[0m\n", aeronave->id, sector->id);
-        aeronave->current_sector = sector;
-        aeronave->current_index_rota++;
+        if(sector->id == centralized_control_mechanism->num_mutex_sections){
+            printf("\033[34m[AIRCRAFT %d] Acquired backup sector (id = %d)\033[0m\n", aeronave->id, sector->id);
+            aeronave->current_sector = sector;
+        }
+        else{
+            printf("\033[34m[AIRCRAFT %d] Acquired sector %d\033[0m\n", aeronave->id, sector->id);
+            aeronave->current_sector = sector;
+            aeronave->current_index_rota++;
+        }
         return 1;
     }
     return 0;
@@ -207,7 +278,12 @@ Sector* release_sector(Aeronave * aeronave, Sector* to_release) {
     req.id_aeronave = aeronave->id;
     req.id_sector   = sid;
     req.request_type = 1;
-    printf("\033[34m[AIRCRAFT %d] Released sector %d\033[0m\n", aeronave->id, sid);
+    if(sid == centralized_control_mechanism->num_mutex_sections){
+        printf("\033[34m[AIRCRAFT %d] Released backup sector (id = %d)\033[0m\n", aeronave->id, sid);
+    }
+    else{
+        printf("\033[34m[AIRCRAFT %d] Released sector %d\033[0m\n", aeronave->id, sid);
+    }
     enqueue_request(centralized_control_mechanism, &req); // sends a request warning that the sector is free
     return to_release;
 }
@@ -215,12 +291,6 @@ Sector* release_sector(Aeronave * aeronave, Sector* to_release) {
 int repeat(Aeronave * aeronave) {
     if (!aeronave || !aeronave->rota) return 0;
     return (aeronave->current_index_rota < aeronave->tam_rota); // if it was at the last sector, exit
-}
-
-// Pequena função interna para obter o próximo setor da rota (terminada com -1)
-static int aeronave_next_sector_id(Aeronave *a) {
-    if (!a || !a->rota) return -1;
-    return a->rota[a->current_index_rota];
 }
 
 // "Init + run": prepara estado e executa a rota completa da aeronave
@@ -432,12 +502,24 @@ int enqueue_request(CentralizedControlMechanism * ccm, RequestSector * request) 
     ccm->request_queue_rear = (ccm->request_queue_rear + 1) % ccm->request_queue_size;
     ccm->request_queue_count++;
     if(request->request_type == 0){
-        printf("\033[33m[ENQUEUE] Request queued. Aircraft %d wants to enter Sector %d. Queue size: %d\033[0m\n",
-               request->id_aeronave, request->id_sector, ccm->request_queue_count);
+        if(request->id_sector == ccm->num_mutex_sections){
+            printf("\033[33m[ENQUEUE] Request queued. Aircraft %d wants to enter BACKUP Sector (id = %d). Queue size: %d\033[0m\n",
+                   request->id_aeronave, request->id_sector, ccm->request_queue_count);
+        }
+        else{
+            printf("\033[33m[ENQUEUE] Request queued. Aircraft %d wants to enter Sector %d. Queue size: %d\033[0m\n",
+                   request->id_aeronave, request->id_sector, ccm->request_queue_count);
+        }
     }
     else{
-        printf("\033[33m[ENQUEUE] Request queued. Aircraft %d wants to leave Sector %d. Queue size: %d\033[0m\n",
+        if(request->id_sector == ccm->num_mutex_sections){
+            printf("\033[33m[ENQUEUE] Request queued. Aircraft %d wants to leave BACKUP Sector (id = %d). Queue size: %d\033[0m\n",
                request->id_aeronave, request->id_sector, ccm->request_queue_count);
+        }
+        else{
+            printf("\033[33m[ENQUEUE] Request queued. Aircraft %d wants to leave Sector %d. Queue size: %d\033[0m\n",
+                   request->id_aeronave, request->id_sector, ccm->request_queue_count);
+        }
     }
     pthread_mutex_unlock(&ccm->mutex_request);
     return 0;
@@ -507,14 +589,6 @@ Sector* control_priority(RequestSector* request, MutexPriority ** mutex_prioriti
             printf("[CONTROL_PRIORITY] Sector %d is occupied by aircraft %d. Adding aircraft %d to waiting list.\n", 
                 request->id_sector, sectors[request->id_sector]->id_aeronave_occupying, request->id_aeronave);
             
-            // if the current aeronave already has a sector release his current sector
-            // avoird poss and waiting in two sectors at the same time
-            if (aeronaves[request->id_aeronave]->current_sector != NULL) {
-                release_sector(
-                    aeronaves[request->id_aeronave], 
-                    aeronaves[request->id_aeronave]->current_sector
-                );
-            }
             insert_aeronave_mutex_priority(
                 mutex_priorities[request->id_sector], aeronaves[request->id_aeronave]
             );
@@ -541,6 +615,9 @@ Sector* control_priority(RequestSector* request, MutexPriority ** mutex_prioriti
             printf("\033[31m[CONTROL_PRIORITY] Aircraft %d released sector %d.\033[0m\n", request->id_aeronave, id_sector);
             sectors[request->id_sector]->busy = 0;
             sectors[request->id_sector]->id_aeronave_occupying = -1;
+        }
+        if(id_sector == centralized_control_mechanism->num_mutex_sections){
+            aux_var = 0;
         }
         printf("\033[34m[AIRCRAFT %d] Left sector %d\033[0m\n", request->id_aeronave, id_sector);
         return sectors[id_sector];

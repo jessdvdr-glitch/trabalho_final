@@ -7,6 +7,9 @@
 
 // global variables
 Sector ** sectors;
+Sector * aux_sector;
+pthread_mutex_t aux_mutex;
+int aux_var = 0;
 Aeronave ** aeronaves;
 CentralizedControlMechanism * centralized_control_mechanism;
 int *thread_returns;
@@ -100,6 +103,8 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < number_sectors; i++) {
         sectors[i] = create_sector(i);
     }
+    aux_sector = create_sector(number_sectors);
+    pthread_mutex_init(&aux_mutex, NULL);
     
     for (int j = 0; j < number_aeronaves; j++) {
         aeronaves[j] = create_aeronave(j, rand() % 1000, rand() % max_tam_rota + 1);
@@ -124,6 +129,8 @@ int main(int argc, char *argv[]) {
     free(thread_returns);
     // TODO : really use the destroy functions
     free(sectors);
+    destroy_sector(aux_sector);
+    pthread_mutex_destroy(&aux_mutex);
     free(aeronaves);
     destroy_centralized_control_mechanism(centralized_control_mechanism);
     printf("Main thread finished\n");

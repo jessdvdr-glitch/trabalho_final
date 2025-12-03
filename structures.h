@@ -38,15 +38,15 @@ typedef struct{
 
 typedef struct{
     MutexPriority ** mutex_sections; /* array of pointers to MutexPriority (one per sector) */
-    int num_mutex_sections;          /* number of entries in mutex_sections */
+    int num_mutex_sections;          /* number of entries in mutex_sections (== num_sectors) */
     RequestSector * request_queue;   /* array of RequestSector objects acting as a FIFO queue */
     int request_queue_size;          /* maximum size of the request queue */
     int request_queue_front;         /* index of the front element (where we dequeue) */
     int request_queue_rear;          /* index of the rear element (where we enqueue) */
     int request_queue_count;         /* current number of requests in the queue */
     pthread_mutex_t mutex_request;   /* mutex to protect `request_queue` : one request at a time */
-    sem_t * semaphores_aeronaves;   /* array of semaphores to avoid busy waiting */
-    int num_semaphores_aeronaves;
+    sem_t * semaphores_aeronaves;    /* array of semaphores to avoid busy waiting */
+    int num_semaphores_aeronaves;    /* number of semaphores (== num_aeronaves) */
 }CentralizedControlMechanism;
 
 // global variables
@@ -57,6 +57,7 @@ extern CentralizedControlMechanism * centralized_control_mechanism;
 // Sectors list fonctions 
 Sector* create_sector(int number_sectors);
 void destroy_sectors(Sector * sectors); 
+void destroy_sector(Sector * sector);
 int insert_sector(Sector * sectors, Sector sector);
 Sector remove_sector(Sector * sectors, int number_sectors, int id_sector);
 int is_empty_sectors(Sector * sectors, int number_sectors);
@@ -68,6 +69,7 @@ void init_aeronave(Aeronave * aeronave);
 void destroy_aeronaves(Aeronave * aeronaves);
 int request_sector(Aeronave * aeronave, int id_sector);
 int wait_sector(Aeronave * aeronave);
+void flush_network(Aeronave * a);
 int acquire_sector(Aeronave * aeronave, Sector * sector);
 Sector* release_sector(Aeronave * aeronave, Sector* to_release);
 int repeat(Aeronave * aeronave);

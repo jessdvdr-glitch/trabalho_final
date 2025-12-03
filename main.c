@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
     int number_aeronaves = atoi(argv[2]);
     int max_tam_rota = number_sectors*2; // max route size arbitrarily defined as this
     // initialize structures
-    sectors = malloc(sizeof(Sector*) * number_sectors);
+    sectors = malloc(sizeof(Sector*) * (number_sectors + 1));
     aeronaves = malloc(sizeof(Aeronave*) * number_aeronaves);
     centralized_control_mechanism = create_centralized_control_mechanism(number_sectors, number_aeronaves); // use sectors count
 
@@ -103,7 +103,7 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < number_sectors; i++) {
         sectors[i] = create_sector(i);
     }
-    aux_sector = create_sector(number_sectors);
+    aux_sector = sectors[number_sectors];
     pthread_mutex_init(&aux_mutex, NULL);
     
     for (int j = 0; j < number_aeronaves; j++) {
@@ -129,7 +129,6 @@ int main(int argc, char *argv[]) {
     free(thread_returns);
     // TODO : really use the destroy functions
     free(sectors);
-    destroy_sector(aux_sector);
     pthread_mutex_destroy(&aux_mutex);
     free(aeronaves);
     destroy_centralized_control_mechanism(centralized_control_mechanism);

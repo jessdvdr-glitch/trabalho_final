@@ -209,14 +209,14 @@ void flush_network(Aeronave * a){
         printf("\033[34m[AIRCRAFT %d] DEADLOCK DETECTED! ENTERING BACKUP SECTOR\033[0m\n", a->id);
         aux_var = 1;
         // Request access to the backup sector
-        request_sector(a, centralized_control_mechanism->num_mutex_sections); // request to enter backup
+        request_sector(a, aux_sector->id); // request to enter backup
     
         // Wait CCM authorization 
         wait_sector(a);
         Sector* to_release = a->current_sector;
         
         // Acquire (trylock) after authorization it should be available
-        while (!acquire_sector(a, sectors[centralized_control_mechanism->num_mutex_sections])) {
+        while (!acquire_sector(a, aux_sector)) {
             usleep(100);
         }
 
@@ -229,7 +229,7 @@ void flush_network(Aeronave * a){
 
     }
     pthread_mutex_unlock(&aux_mutex);
-    if(a->id == sectors[centralized_control_mechanism->num_mutex_sections]->id_aeronave_occupying){ // if it has entered the backup, it asks to go to the sector it was trying to access
+    if(a->id == aux_sector->id_aeronave_occupying){ // if it has entered the backup, it asks to go to the sector it was trying to access
         int next_id = aeronave_next_sector_id(a);
 
         // Request access to the next sector
@@ -244,12 +244,12 @@ void flush_network(Aeronave * a){
 int acquire_sector(Aeronave * aeronave, Sector * sector) {
     if (!centralized_control_mechanism || !sector) return 0;
     int sid = sector->id;
-    if (sid < 0 || sid >= centralized_control_mechanism->num_mutex_sections) return 0;
+    if (sid < 0 || sid >= centralized_control_mechanism->num_mutex_sections + 1) return 0;
 
     MutexPriority *mp = centralized_control_mechanism->mutex_sections[sid];
     int rc = pthread_mutex_trylock(&mp->mutex_sector);
     if (rc == 0) {
-        if(sector->id == centralized_control_mechanism->num_mutex_sections){
+        if(sector->id == aux_sector->id){
             printf("\033[34m[AIRCRAFT %d] Acquired backup sector (id = %d)\033[0m\n", aeronave->id, sector->id);
             aeronave->current_sector = sector;
         }
@@ -266,7 +266,7 @@ int acquire_sector(Aeronave * aeronave, Sector * sector) {
 Sector* release_sector(Aeronave * aeronave, Sector* to_release) {
     if (!centralized_control_mechanism || !aeronave || !to_release) return NULL;
     int sid = to_release->id;
-    if (sid < 0 || sid >= centralized_control_mechanism->num_mutex_sections) return NULL;
+    if (sid < 0 || sid >= centralized_control_mechanism->num_mutex_sections + 1) return NULL;
 
     MutexPriority *mp = centralized_control_mechanism->mutex_sections[sid];
     pthread_mutex_unlock(&mp->mutex_sector);
@@ -417,14 +417,14 @@ CentralizedControlMechanism* create_centralized_control_mechanism(int sectors_nu
     CentralizedControlMechanism *ccm = malloc(sizeof(CentralizedControlMechanism));
     if (!ccm) return NULL;
 
-    ccm->num_mutex_sections = sectors_number;
-    ccm->mutex_sections = malloc(sectors_number * sizeof(MutexPriority*));
+    ccm->num_mutex_sections = sectors_number + 1;
+    ccm->mutex_sections = malloc(ccm->num_mutex_sections * sizeof(MutexPriority*));
     if (!ccm->mutex_sections) {
         free(ccm);
         return NULL;
     }
 
-    for (int i = 0; i < sectors_number; ++i) {
+    for (int i = 0; i < ccm->num_mutex_sections; ++i) {
         ccm->mutex_sections[i] = create_mutex_priority(aeronaves_number, i);
         if (!ccm->mutex_sections[i]) {
             for (int j = 0; j < i; ++j) destroy_mutex_priority(ccm->mutex_sections[j]);
@@ -445,7 +445,7 @@ CentralizedControlMechanism* create_centralized_control_mechanism(int sectors_nu
     ccm->request_queue_size = aeronaves_number; // Large queue capacity  Lucas: isn't the max number of requests == num_aeronaves?
     ccm->request_queue = malloc(ccm->request_queue_size * sizeof(RequestSector));
     if (!ccm->request_queue) {
-        for (int i = 0; i < sectors_number; ++i) destroy_mutex_priority(ccm->mutex_sections[i]);
+        for (int i = 0; i < ccm->num_mutex_sections; ++i) destroy_mutex_priority(ccm->mutex_sections[i]);
         free(ccm->mutex_sections);
         free(ccm);
         return NULL;
@@ -455,7 +455,7 @@ CentralizedControlMechanism* create_centralized_control_mechanism(int sectors_nu
     ccm->request_queue_count = 0;
 
     if (pthread_mutex_init(&ccm->mutex_request, NULL) != 0) {
-        for (int i = 0; i < sectors_number; ++i) destroy_mutex_priority(ccm->mutex_sections[i]);
+        for (int i = 0; i < ccm->num_mutex_sections; ++i) destroy_mutex_priority(ccm->mutex_sections[i]);
         free(ccm->mutex_sections);
         free(ccm->request_queue);
         free(ccm);
@@ -502,7 +502,7 @@ int enqueue_request(CentralizedControlMechanism * ccm, RequestSector * request) 
     ccm->request_queue_rear = (ccm->request_queue_rear + 1) % ccm->request_queue_size;
     ccm->request_queue_count++;
     if(request->request_type == 0){
-        if(request->id_sector == ccm->num_mutex_sections){
+        if(request->id_sector == aux_sector->id){
             printf("\033[33m[ENQUEUE] Request queued. Aircraft %d wants to enter BACKUP Sector (id = %d). Queue size: %d\033[0m\n",
                    request->id_aeronave, request->id_sector, ccm->request_queue_count);
         }
@@ -512,7 +512,7 @@ int enqueue_request(CentralizedControlMechanism * ccm, RequestSector * request) 
         }
     }
     else{
-        if(request->id_sector == ccm->num_mutex_sections){
+        if(request->id_sector == aux_sector->id){
             printf("\033[33m[ENQUEUE] Request queued. Aircraft %d wants to leave BACKUP Sector (id = %d). Queue size: %d\033[0m\n",
                request->id_aeronave, request->id_sector, ccm->request_queue_count);
         }

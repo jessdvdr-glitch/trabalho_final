@@ -11,7 +11,6 @@ CentralizedControlMechanism * centralized_control_mechanism;
 
 void* thread_aeronave_function(void *arg) {
     Aeronave *a = (Aeronave *)arg;                    // use the real pointer instead of copying
-    printf("Aeronave %d started\n", a->id);           // updated variable name
     init_aeronave(a);                                 // run loop inside the real aeronave
     pthread_exit(NULL);
     return NULL;
@@ -40,7 +39,12 @@ void* thread_centralized_control_mechanism(void *arg) {
                                               &centralized_control_mechanism->mutex_request);
             
             if (result != NULL) {
-                printf("[CCM_THREAD] Request processed successfully. Sector assigned.\n");
+                if(current_request->request_type == 0){
+                    printf("[CCM_THREAD] Request processed successfully. Sector %d assigned.\n", result->id);
+                }
+                else{
+                    printf("[CCM_THREAD] Request processed successfully. Sector %d free.\n", result->id);
+                }
             } else {
                 printf("[CCM_THREAD] Request queued in waiting list. Aircraft will wait.\n");
             }
@@ -55,7 +59,7 @@ void* thread_centralized_control_mechanism(void *arg) {
 
 int main(int argc, char *argv[]) {
     // doesn't have the right number of arguments
-    printf("tudo alocado dboas");
+    //printf("tudo alocado dboas");
     if (argc != 3) {
         printf("Usage : %s <nombre1> <nombre2>\n", argv[0]);
         return 1; 
@@ -76,7 +80,7 @@ int main(int argc, char *argv[]) {
     }
     
     for (int j = 0; j < number_aeronaves; j++) {
-        aeronaves[j] = create_aeronave(j, rand() % 1000, rand() % max_tam_rota);
+        aeronaves[j] = create_aeronave(j, rand() % 1000, rand() % max_tam_rota + 1);
     }                                      // random priority,   random route size
 
     // initialize threads

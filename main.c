@@ -9,17 +9,27 @@
 Sector ** sectors;
 Aeronave ** aeronaves;
 CentralizedControlMechanism * centralized_control_mechanism;
+int *thread_returns;
+int n_threads;
+
+int check_end_aeronaves(void){
+    for (int i = 0; i < n_threads; i++) {
+        if(!thread_returns[i]){ // if even single thread is still executing, return 0
+            return 0;
+        }
+    }
+    return 1;
+}
 
 void* thread_aeronave_function(void *arg) {
     Aeronave *a = (Aeronave *)arg;                    // use the real pointer instead of copying
     init_aeronave(a);                                 // run loop inside the real aeronave
+    thread_returns[a->id] = 1; // tell everyone it has ended
     pthread_exit(NULL);
-    return NULL;
 }
 
 void* thread_centralized_control_mechanism(void *arg) {
-    int number_aeronaves = *((int *)arg);
-    (void)number_aeronaves; // Mark as intentionally unused
+    (void)arg;
     printf("[CCM_THREAD] Centralized Control Mechanism thread started\n");
     
     // Main loop: continuously process requests from the queue
@@ -35,7 +45,7 @@ void* thread_centralized_control_mechanism(void *arg) {
             
             // Call control_priority to attempt to acquire the sector
             // The call remains the same, the change was inside control_priority()
-            Sector * result = control_priority(current_request, 
+            /* Sector * result = */control_priority(current_request, 
                                               centralized_control_mechanism->mutex_sections,
                                               &centralized_control_mechanism->mutex_request);
             
@@ -52,6 +62,9 @@ void* thread_centralized_control_mechanism(void *arg) {
         } 
         else{
             usleep(100);
+        }
+        if(check_end_aeronaves()){ // ends only if all other threads have too
+            pthread_exit(NULL);
         }
     }
     
@@ -78,6 +91,11 @@ int main(int argc, char *argv[]) {
     aeronaves = malloc(sizeof(Aeronave*) * number_aeronaves);
     centralized_control_mechanism = create_centralized_control_mechanism(number_sectors, number_aeronaves); // use sectors count
 
+    thread_returns = malloc(sizeof(int) * number_aeronaves);
+    n_threads = number_aeronaves;
+    for (int i = 0; i < number_aeronaves; i++) {
+        thread_returns[i] = 0;
+    } 
 
     for (int i = 0; i < number_sectors; i++) {
         sectors[i] = create_sector(i);
@@ -90,27 +108,24 @@ int main(int argc, char *argv[]) {
     // initialize threads
     pthread_t * aeronaves_threads = malloc(sizeof(pthread_t) * number_aeronaves);
     pthread_t centralized_control_mechanism_thread;
-    int *num_aero_ptr = malloc(sizeof(int));
-    *num_aero_ptr = number_aeronaves;
-    pthread_create(&centralized_control_mechanism_thread, NULL, thread_centralized_control_mechanism, (void *)num_aero_ptr);
+    pthread_create(&centralized_control_mechanism_thread, NULL, thread_centralized_control_mechanism, NULL);
 
     for(int j = 0; j < number_aeronaves; j++) {
         pthread_create(&aeronaves_threads[j], NULL,
                        thread_aeronave_function, (void *)aeronaves[j]);   // function uses real pointer now
     }
-
-    pthread_detach(centralized_control_mechanism_thread); // controlador roda em loop; não fazer join
     
     for(int j = 0; j < number_aeronaves; j++) {
         pthread_join(aeronaves_threads[j], NULL);
     }
+    pthread_join(centralized_control_mechanism_thread, NULL);
 
     free(aeronaves_threads);
+    free(thread_returns);
     // TODO : really use the destroy functions
     free(sectors);
     free(aeronaves);
     destroy_centralized_control_mechanism(centralized_control_mechanism);
-    free(num_aero_ptr);
     printf("Main thread finished\n");
     return 0; 
 }    

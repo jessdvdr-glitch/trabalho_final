@@ -47,21 +47,9 @@ void* thread_centralized_control_mechanism(void *arg) {
                    current_request->id_sector);
             
             // Call control_priority to attempt to acquire the sector
-            // The call remains the same, the change was inside control_priority()
-            /* Sector * result = */control_priority(current_request, 
-                                              centralized_control_mechanism->mutex_sections,
-                                              &centralized_control_mechanism->mutex_request);
-            
-            // if (result != NULL) {
-            //     if(current_request->request_type == 0){
-            //         //printf("[CCM_THREAD] Request processed successfully. Sector %d assigned.\n", result->id);
-            //     }
-            //     else{
-            //         //printf("[CCM_THREAD] Request processed successfully. Sector %d free.\n", result->id);
-            //     }
-            // } else {
-            //     //printf("[CCM_THREAD] Sector busy. Aircraft will wait.\n");
-            // }
+            control_priority(current_request, 
+                            centralized_control_mechanism->mutex_sections,
+                            &centralized_control_mechanism->mutex_request);
         } 
         else{
             usleep(100);
@@ -78,8 +66,6 @@ void* thread_centralized_control_mechanism(void *arg) {
 
 
 int main(int argc, char *argv[]) {
-    // doesn't have the right number of arguments
-    //printf("tudo alocado dboas");
     if (argc != 3) {
         printf("Usage : %s <nombre1> <nombre2>\n", argv[0]);
         return 1; 
@@ -88,9 +74,10 @@ int main(int argc, char *argv[]) {
     srand(time(NULL));
     int number_sectors = atoi(argv[1]);
     int number_aeronaves = atoi(argv[2]);
-    int max_tam_rota = number_sectors*2; // max route size arbitrarily defined as this
-    // initialize structures
-    sectors = malloc(sizeof(Sector*) * (number_sectors + number_aeronaves)); // usual sectors + auxiliar
+    int max_tam_rota = number_sectors*2;
+    
+    // Initialize structures
+    sectors = malloc(sizeof(Sector*) * (number_sectors + number_aeronaves));
     aux_sectors = malloc(sizeof(Sector*) * number_aeronaves);
     aeronaves = malloc(sizeof(Aeronave*) * number_aeronaves);
     centralized_control_mechanism = create_centralized_control_mechanism(number_sectors, number_aeronaves); // use sectors count
@@ -111,7 +98,7 @@ int main(int argc, char *argv[]) {
     
     for (int j = 0; j < number_aeronaves; j++) {
         aeronaves[j] = create_aeronave(j, rand() % 1000, rand() % max_tam_rota + 1);
-    }                                      // random priority,   random route size
+    }
 
     // initialize threads
     pthread_t * aeronaves_threads = malloc(sizeof(pthread_t) * number_aeronaves);
@@ -120,7 +107,7 @@ int main(int argc, char *argv[]) {
 
     for(int j = 0; j < number_aeronaves; j++) {
         pthread_create(&aeronaves_threads[j], NULL,
-                       thread_aeronave_function, (void *)aeronaves[j]);   // function uses real pointer now
+                       thread_aeronave_function, (void *)aeronaves[j]);
     }
     
     for(int j = 0; j < number_aeronaves; j++) {
@@ -131,13 +118,13 @@ int main(int argc, char *argv[]) {
     printf("Routes finished\n");
     printf("Mean waiting times (only considers from request to acquirement of the sector it wanted. That is: keeps counting while in BACKUP)\n");
     for(int i = 0; i < number_aeronaves; i++){
-        printf("[AIRCRAFT %d] Mean waiting time: %.5f\n", i, aeronaves[i]->mean_wait_time/aeronaves[i]->tam_rota);
+        printf("[AIRCRAFT %d : Priority %d] Mean waiting time: %.5f\n", i, aeronaves[i]->priority, aeronaves[i]->mean_wait_time/aeronaves[i]->tam_rota);
     }
     
 
     free(aeronaves_threads);
     free(thread_returns);
-    // TODO : really use the destroy functions
+    
     for (int i = 0; i < number_sectors+number_aeronaves; i++) {
         destroy_sector(sectors[i]);
     }
